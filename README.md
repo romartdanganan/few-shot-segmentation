@@ -125,6 +125,21 @@ Training progress can be monitored with TensorBoard:
 tensorboard --logdir runs
 ```
 
+## Current development status
+
+Real FSS-1000 integration has been verified with:
+
+- 1000 detected classes
+- 700/100/200 train/validation/test class split
+- 1-shot and 5-shot episodic sampling
+- CUDA training on an RTX 3070
+- standard fine-tuning baseline
+- prototype-based episodic training
+- distance-weighted prototype ablation
+
+Short smoke tests have been completed on all three training conditions.
+
+
 ## References
 
 - Xie et al., ["SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers"](https://arxiv.org/abs/2105.15203), NeurIPS 2021
