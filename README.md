@@ -62,18 +62,38 @@ source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+## Dataset
+
 Download [FSS-1000](https://github.com/HKUSTCV/FSS-1000) (also mirrored on
 [Kaggle](https://www.kaggle.com/datasets/meowmeowmeowmeowmeow/fss1000-a-1000-class-fewshot-segmentation))
 and unzip it so each class has its own folder of numbered image/mask pairs, e.g.:
 
-```
-data/FSS-1000/
-    abacus/
-        1.jpg
-        1.png
-        ...
-    ...
-```
+This project uses FSS-1000, containing 1000 object classes with 10 annotated image-mask pairs per class.
+
+The dataset is not included in this repository.
+
+Expected local layout:
+
+data/
+└── fewshot_data/
+    ├── abacus/
+    │   ├── 1.jpg
+    │   ├── 1.png
+    │   ├── 2.jpg
+    │   ├── 2.png
+    │   └── ...
+    ├── accordion/
+    └── ...
+
+The loader uses a class-level split of:
+
+- 700 training classes
+- 100 validation classes
+- 200 test classes
+
+There is no class overlap between splits.
+
+Both 1-shot and 5-shot episodes consist of a k-shot support set and one query image.
 
 ## Usage
 
