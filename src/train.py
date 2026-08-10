@@ -124,9 +124,21 @@ def main():
             opt.zero_grad()
             with torch.autocast(device_type=DEVICE.type, enabled=(args.amp and DEVICE.type == "cuda")):
                 if args.method == "baseline":
-                    loss, _ = baseline_loss(backbone, head, s_imgs, s_masks)
+                    loss = baseline_loss(
+                        backbone,
+                        head,
+                        s_imgs,
+                        s_masks,
+                    )
                 else:
-                    loss, _ = prototype_loss(backbone, s_imgs, s_masks, q_img, q_mask, weighted=args.weighted)
+                    loss, _ = prototype_loss(
+                        backbone,
+                        s_imgs,
+                        s_masks,
+                        q_img,
+                        q_mask,
+                        weighted=args.weighted,
+                    )
 
             scaler.scale(loss).backward()
             scaler.step(opt)
