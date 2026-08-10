@@ -1,0 +1,26 @@
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+
+# --- PyCharm ---
+.idea/
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Dataset (never commit this — it's large and not yours to redistribute) ---
+data/
+
+# --- Training outputs (checkpoints/logs are large and regenerable) ---
+runs/
+*.pt
+*.pth
+
+# --- Jupyter, if you ever add notebooks ---
+.ipynb_checkpoints/

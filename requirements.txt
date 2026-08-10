@@ -1,0 +1,3 @@
+transformers>=4.40
+tensorboard>=2.15
+Pillow>=10.0
