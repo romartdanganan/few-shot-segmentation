@@ -10,12 +10,24 @@ and the 1/sqrt(C) stabiliser are unchanged from there.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from transformers import SegformerModel
+from transformers import SegformerForSemanticSegmentation
 
 
-def build_backbone(pretrained_name="nvidia/mit-b0"):
-    """SegFormer MiT-B0 encoder, pretrained on ADE20K (matches Table I)."""
-    return SegformerModel.from_pretrained(pretrained_name)
+ADE20K_CHECKPOINT = "nvidia/segformer-b0-finetuned-ade-512-512"
+
+
+def build_backbone(pretrained_name=ADE20K_CHECKPOINT):
+    """
+    Load SegFormer-B0 fine-tuned on ADE20K and return its MiT encoder.
+
+    Both the baseline and prototype methods use this exact same encoder
+    initialization, matching the design report.
+    """
+    full_model = SegformerForSemanticSegmentation.from_pretrained(
+        pretrained_name
+    )
+
+    return full_model.segformer
 
 
 def extract_features(backbone, images):
@@ -35,14 +47,39 @@ class SegHead(nn.Module):
         return F.interpolate(logits, size=out_hw, mode="bilinear", align_corners=False)
 
 
+def baseline_logits(backbone, head, images):
+    """
+    Run images through the shared encoder and baseline segmentation head.
+
+    images: (B, 3, H, W)
+    returns: (B, 2, H, W)
+    """
+    h, w = images.shape[-2:]
+    feats = extract_features(backbone, images)
+    return head(feats, (h, w))
+
+
 def baseline_loss(backbone, head, support_imgs, support_masks):
-    """Cross-entropy fine-tuning directly on the k-shot support set."""
+    """
+    Fine-tune the baseline directly on the k-shot support set
+    using cross-entropy, as described in the design report.
+    """
     b, k, c, h, w = support_imgs.shape
+
     imgs = support_imgs.view(b * k, c, h, w)
     masks = support_masks.view(b * k, h, w).long()
-    feats = extract_features(backbone, imgs)
-    logits = head(feats, (h, w))
-    return F.cross_entropy(logits, masks), logits.view(b, k, 2, h, w)[:, -1]
+
+    logits = baseline_logits(backbone, head, imgs)
+
+    return F.cross_entropy(logits, masks)
+
+
+def baseline_query_logits(backbone, head, query_img):
+    """
+    Predict the segmentation mask for the held-out query image
+    after the baseline has been adapted on the support set.
+    """
+    return baseline_logits(backbone, head, query_img)
 
 
 def compute_prototypes(support_feats, support_occupancy, weighted=False):
