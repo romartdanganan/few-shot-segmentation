@@ -10,6 +10,7 @@ and the 1/sqrt(C) stabiliser are unchanged from there.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import copy
 from transformers import SegformerForSemanticSegmentation
 
 
@@ -81,6 +82,42 @@ def baseline_query_logits(backbone, head, query_img):
     """
     return baseline_logits(backbone, head, query_img)
 
+def adapt_baseline(backbone,head,support_imgs,support_masks,lr=1e-4,steps=5):
+    """
+    Create an episode-specific copy of the baseline and fine-tune it on
+    the k-shot support set.
+
+    The original backbone/head are untouched so every novel episode
+    starts from the same checkpoint.
+    """
+    adapted_backbone = copy.deepcopy(backbone)
+    adapted_head = copy.deepcopy(head)
+
+    adapted_backbone.train()
+    adapted_head.train()
+
+    optimizer = torch.optim.AdamW(
+        list(adapted_backbone.parameters()) + list(adapted_head.parameters()),
+        lr=lr,
+    )
+
+    for _ in range(steps):
+        optimizer.zero_grad()
+
+        loss = baseline_loss(
+            adapted_backbone,
+            adapted_head,
+            support_imgs,
+            support_masks,
+        )
+
+        loss.backward()
+        optimizer.step()
+
+    adapted_backbone.eval()
+    adapted_head.eval()
+
+    return adapted_backbone, adapted_head
 
 def compute_prototypes(support_feats, support_occupancy, weighted=False):
     """Eq. (1): masked average pooling. See pilot_test.py for full derivation
