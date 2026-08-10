@@ -123,6 +123,14 @@ class FSS1000Episodic(Dataset):
                 img = TF.adjust_brightness(img, jitter)
 
         img_t = TF.to_tensor(img)
+
+        # Match the preprocessing used by the ADE20K-pretrained SegFormer checkpoint.
+        img_t = TF.normalize(
+            img_t,
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225],
+        )
+
         mask_t = (TF.to_tensor(mask) > 0.5).float().squeeze(0)
         return img_t, mask_t
 
