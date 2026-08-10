@@ -41,7 +41,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 # --------------------------------------------------------------------------
-# Synthetic episodic dataset — stand-in for FSS-1000 while you validate the
+# Synthetic episodic dataset — stand-in for FSS-1000 while I validate the
 # pipeline. Each "episode" is one class: k support (image, binary mask)
 # pairs plus one query (image, binary mask) pair. The object is a random
 # blob so the model has something non-trivial, but consistent, to segment.
