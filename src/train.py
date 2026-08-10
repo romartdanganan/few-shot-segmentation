@@ -23,7 +23,14 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from src.dataset import FSS1000Episodic, discover_classes, class_level_split, fss_collate
-from src.models import build_backbone, SegHead, baseline_loss, prototype_loss
+from src.models import (
+    build_backbone,
+    SegHead,
+    baseline_loss,
+    baseline_query_logits,
+    adapt_baseline,
+    prototype_loss,
+)
 from src.metrics import binary_mask_metrics, RunningStats
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -65,6 +72,7 @@ def main():
     ap.add_argument("--amp", action="store_true", default=True)
     ap.add_argument("--no-amp", dest="amp", action="store_false")
     ap.add_argument("--out-dir", default="runs")
+    ap.add_argument("--adapt-steps",type=int,default=5,help="baseline: support-set fine-tuning steps during validation")
     args = ap.parse_args()
 
     torch.manual_seed(args.seed)
@@ -137,15 +145,43 @@ def main():
         if head is not None:
             head.eval()
         stats = RunningStats()
-        with torch.no_grad():
-            for s_imgs, s_masks, q_img, q_mask, cls in val_loader:
-                s_imgs, s_masks = s_imgs.to(DEVICE), s_masks.to(DEVICE)
-                q_img, q_mask = q_img.to(DEVICE), q_mask.to(DEVICE)
-                if args.method == "baseline":
-                    _, logits = baseline_loss(backbone, head, s_imgs, s_masks)
-                else:
-                    _, logits = prototype_loss(backbone, s_imgs, s_masks, q_img, q_mask, weighted=args.weighted)
-                stats.update(binary_mask_metrics(logits, q_mask))
+
+        for s_imgs, s_masks, q_img, q_mask, cls in val_loader:
+            s_imgs, s_masks = s_imgs.to(DEVICE), s_masks.to(DEVICE)
+            q_img, q_mask = q_img.to(DEVICE), q_mask.to(DEVICE)
+
+            if args.method == "baseline":
+                adapted_backbone, adapted_head = adapt_baseline(
+                    backbone,
+                    head,
+                    s_imgs,
+                    s_masks,
+                    lr=args.lr,
+                    steps=args.adapt_steps,
+                )
+
+                with torch.no_grad():
+                    logits = baseline_query_logits(
+                        adapted_backbone,
+                        adapted_head,
+                        q_img,
+                    )
+
+                del adapted_backbone
+                del adapted_head
+
+            else:
+                with torch.no_grad():
+                    _, logits = prototype_loss(
+                        backbone,
+                        s_imgs,
+                        s_masks,
+                        q_img,
+                        q_mask,
+                        weighted=args.weighted,
+                    )
+
+            stats.update(binary_mask_metrics(logits, q_mask))
 
         summary = stats.summary()
         val_miou = summary["mIoU"][0]
