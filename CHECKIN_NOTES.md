@@ -4,30 +4,38 @@
 
 - `main` merged with the Week 6 training work (was sitting unmerged on a
   feature branch — see "Issues" below).
-- First real end-to-end training runs completed, k=5, 10 epochs each,
-  seed 0:
+- Five real end-to-end training runs completed (10 epochs each, seed 0),
+  results archived in `results/*.json`:
 
-| Method               | Best val mIoU | F1 (same epoch) |
-|----------------------|---------------|------------------|
-| Baseline (fine-tune) | 0.8409        | 0.8470           |
-| Prototype (episodic) | 0.7926        | 0.8059           |
+| Method                | k | Best val mIoU | F1 (same epoch) |
+|------------------------|---|---------------|------------------|
+| Baseline (fine-tune)   | 5 | 0.8409        | 0.8470           |
+| Prototype (plain)      | 5 | 0.7926        | 0.8059           |
+| Prototype (weighted)   | 5 | 0.7914        | 0.8057           |
+| Baseline (fine-tune)   | 1 | 0.8262        | 0.8356           |
+| Prototype (plain)      | 1 | 0.7556        | 0.7130           |
 
-- Both use the identical SegFormer MiT-B0 backbone (ADE20K-pretrained),
+- All runs use the identical SegFormer MiT-B0 backbone (ADE20K-pretrained),
   identical data/augmentation/optimiser, per the Table I matched
-  configuration in the design report — so the gap is attributable to the
+  configuration in the design report — so gaps are attributable to the
   training objective, not a confound.
 - Class-level train/val/test splits confirmed with no leakage between
   seen and novel classes.
 
-## How to read this result
+## How to read these results (say this plainly, don't oversell)
 
-- Design report predicted prototype > baseline at k=1, gap narrowing as
-  k increases to 5. What we're seeing at k=5 (baseline ahead) is
-  consistent with that trend, not a contradiction — fine-tuning gets
-  real gradient steps on 5 labelled examples, so it's expected to close
-  the gap or overtake as k grows.
-- k=1 runs are next (see below) — that's the actual test of the
-  hypothesis.
+- **Baseline currently beats prototype at both k=1 and k=5** — this goes
+  against the design report's hypothesis that prototype should win at
+  low k. Not hiding this; it's a real, single-seed finding.
+- **These are single-seed (seed=0) results.** Few-shot performance is
+  known to be sensitive to which support examples get sampled — this
+  is exactly why the design report's evaluation protocol calls for
+  averaging mIoU/F1 across multiple seeds via `src/evaluate.py`, not
+  single-run validation numbers. Conclusions are provisional until that
+  multi-seed pass is done — flagged as the top next step.
+- **Weighted vs. plain prototype at k=5 is a 0.001 mIoU difference**
+  (0.7914 vs 0.7926) — within noise on one seed, no real signal yet
+  either way.
 
 ## Technical issues encountered
 
@@ -39,13 +47,9 @@
 
 ## Next steps
 
-- k=1 runs for both methods (direct test of the design report's
-  hypothesis)
-- Distance-weighted prototype ablation (`--weighted` flag) — testing
-  whether down-weighting low-confidence boundary pixels during
-  prototype computation improves on the plain PANet-style average
 - Multi-seed evaluation via `src/evaluate.py` (mean ± std across
-  episodes, not just single-seed validation numbers)
+  episodes) — top priority, needed before drawing real conclusions
+  from the single-seed numbers above
 - Qualitative examples and per-class error analysis
 - Literature framing: comparing against PANet/PFENet-style prototype
   averaging, with the weighted ablation as the concrete point of
