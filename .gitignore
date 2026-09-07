@@ -17,10 +17,16 @@ Thumbs.db
 # --- Dataset (never commit this — it's large and not yours to redistribute) ---
 data/
 
-# --- Training outputs (checkpoints/logs are large and regenerable) ---
-runs/
+# --- Training outputs ---
+# Checkpoints are large and regenerable — never commit these.
 *.pt
 *.pth
+# But keep the small TensorBoard scalar logs (no weights, just numbers)
+# as real evidence of each run — ignore everything else under runs/.
+runs/*
+!runs/*/
+!runs/*/tb/
+!runs/*/tb/*
 
 # --- Jupyter, if you ever add notebooks ---
 .ipynb_checkpoints/

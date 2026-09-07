@@ -1,0 +1,22 @@
+{
+  "run": "baseline_k5_s0",
+  "method": "baseline",
+  "k_shot": 5,
+  "seed": 0,
+  "img_size": 256,
+  "epochs": [
+    {"epoch": 1,  "train_loss": 0.2748, "val_mIoU": 0.7963, "val_F1": 0.7919},
+    {"epoch": 2,  "train_loss": 0.1621, "val_mIoU": 0.8112, "val_F1": 0.8069},
+    {"epoch": 3,  "train_loss": 0.1409, "val_mIoU": 0.8136, "val_F1": 0.8082},
+    {"epoch": 4,  "train_loss": 0.1278, "val_mIoU": 0.8270, "val_F1": 0.8272},
+    {"epoch": 5,  "train_loss": 0.1219, "val_mIoU": 0.8307, "val_F1": 0.8345},
+    {"epoch": 6,  "train_loss": 0.1123, "val_mIoU": 0.8281, "val_F1": 0.8352},
+    {"epoch": 7,  "train_loss": 0.1068, "val_mIoU": 0.8333, "val_F1": 0.8406},
+    {"epoch": 8,  "train_loss": 0.1082, "val_mIoU": 0.8409, "val_F1": 0.8470},
+    {"epoch": 9,  "train_loss": 0.0980, "val_mIoU": 0.8388, "val_F1": 0.8425},
+    {"epoch": 10, "train_loss": 0.0933, "val_mIoU": 0.8345, "val_F1": 0.8353}
+  ],
+  "best_val_mIoU": 0.8409,
+  "best_epoch": 8,
+  "checkpoint": "runs/baseline_k5_s0/best.pt"
+}

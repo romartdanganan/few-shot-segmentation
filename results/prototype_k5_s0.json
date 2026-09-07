@@ -1,0 +1,23 @@
+{
+  "run": "prototype_k5_s0",
+  "method": "prototype",
+  "weighted": false,
+  "k_shot": 5,
+  "seed": 0,
+  "img_size": 256,
+  "epochs": [
+    {"epoch": 1,  "train_loss": 0.4633, "val_mIoU": 0.7429, "val_F1": 0.7378},
+    {"epoch": 2,  "train_loss": 0.2347, "val_mIoU": 0.7449, "val_F1": 0.7411},
+    {"epoch": 3,  "train_loss": 0.1997, "val_mIoU": 0.7667, "val_F1": 0.7751},
+    {"epoch": 4,  "train_loss": 0.1565, "val_mIoU": 0.7677, "val_F1": 0.7716},
+    {"epoch": 5,  "train_loss": 0.1333, "val_mIoU": 0.7847, "val_F1": 0.8001},
+    {"epoch": 6,  "train_loss": 0.1266, "val_mIoU": 0.7795, "val_F1": 0.7923},
+    {"epoch": 7,  "train_loss": 0.1199, "val_mIoU": 0.7831, "val_F1": 0.7989},
+    {"epoch": 8,  "train_loss": 0.1159, "val_mIoU": 0.7890, "val_F1": 0.8058},
+    {"epoch": 9,  "train_loss": 0.1087, "val_mIoU": 0.7877, "val_F1": 0.8030},
+    {"epoch": 10, "train_loss": 0.1499, "val_mIoU": 0.7926, "val_F1": 0.8059}
+  ],
+  "best_val_mIoU": 0.7926,
+  "best_epoch": 10,
+  "checkpoint": "runs/prototype_k5_s0/best.pt"
+}
