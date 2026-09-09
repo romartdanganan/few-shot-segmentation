@@ -117,13 +117,26 @@ def main():
         t0 = time.time()
         epoch_loss = 0.0
 
+        # One iteration of this loop = one batch of episodes. Each episode
+        # is a (support images, support masks, one query image, one query
+        # mask, class name) tuple — see FSS1000Episodic in dataset.py for
+        # how these get sampled.
         for step, (s_imgs, s_masks, q_img, q_mask, cls) in enumerate(train_loader):
             s_imgs, s_masks = s_imgs.to(DEVICE), s_masks.to(DEVICE)
             q_img, q_mask = q_img.to(DEVICE), q_mask.to(DEVICE)
 
             opt.zero_grad()
+            # autocast runs parts of the forward pass in lower precision
+            # (float16) when AMP is enabled, which uses less GPU memory and
+            # is faster, at a small, generally negligible cost to accuracy.
             with torch.autocast(device_type=DEVICE.type, enabled=(args.amp and DEVICE.type == "cuda")):
                 if args.method == "baseline":
+                    # Baseline: cross-entropy on the support set only (see
+                    # baseline_loss in models.py). The query image isn't
+                    # used for training the baseline at all — the baseline
+                    # is a standard supervised learner, it just happens to
+                    # be trained per-episode on whatever support set it's
+                    # given.
                     loss = baseline_loss(
                         backbone,
                         head,
@@ -131,6 +144,11 @@ def main():
                         s_masks,
                     )
                 else:
+                    # Prototype method: one full episode as described in
+                    # models.py's prototype_loss — support set builds
+                    # prototypes, query gets classified against them, loss
+                    # comes from comparing that classification to the
+                    # query's real mask.
                     loss, _ = prototype_loss(
                         backbone,
                         s_imgs,
@@ -140,6 +158,9 @@ def main():
                         weighted=args.weighted,
                     )
 
+            # Standard PyTorch training step: backpropagate the loss, then
+            # update the model's weights. scaler handles the bookkeeping
+            # AMP needs to do this safely in mixed precision.
             scaler.scale(loss).backward()
             scaler.step(opt)
             scaler.update()
@@ -153,6 +174,10 @@ def main():
         print(f"epoch {epoch+1}/{args.epochs}  mean_loss={mean_loss:.4f}  time={dt:.1f}s")
 
         # ---- validation ----
+        # Validation episodes are sampled from val-split classes, which the
+        # model never trains on directly (see get_splits / class_level_split
+        # in dataset.py) — this is what actually tests "few-shot on a novel
+        # class", not just held-out images of already-seen classes.
         backbone.eval()
         if head is not None:
             head.eval()
@@ -163,6 +188,12 @@ def main():
             q_img, q_mask = q_img.to(DEVICE), q_mask.to(DEVICE)
 
             if args.method == "baseline":
+                # The baseline has no built-in way to adapt to a class it
+                # hasn't trained on, so we give it a few gradient steps on
+                # this episode's support set first (see adapt_baseline in
+                # models.py) — this is the baseline's equivalent of "using
+                # the k support examples", mirroring what the prototype
+                # method does by building a prototype from them instead.
                 adapted_backbone, adapted_head = adapt_baseline(
                     backbone,
                     head,
@@ -179,10 +210,18 @@ def main():
                         q_img,
                     )
 
+                # Free the per-episode adapted copy — we don't want to keep
+                # every episode's adapted weights in memory, and the next
+                # episode should start adapting from the original trained
+                # model again, not from this one's adapted state.
                 del adapted_backbone
                 del adapted_head
 
             else:
+                # Prototype method needs no per-episode adaptation step —
+                # building the prototype from the support set at inference
+                # time already IS its way of using new examples, with no
+                # gradient updates required.
                 with torch.no_grad():
                     _, logits = prototype_loss(
                         backbone,
@@ -193,6 +232,10 @@ def main():
                         weighted=args.weighted,
                     )
 
+            # binary_mask_metrics compares the predicted logits to the real
+            # query mask and computes mIoU/F1 for this one episode;
+            # RunningStats accumulates that across every validation episode
+            # so we get an averaged score for the whole epoch.
             stats.update(binary_mask_metrics(logits, q_mask))
 
         summary = stats.summary()
