@@ -61,6 +61,7 @@ def class_level_split(classes, val_frac=0.1, test_frac=0.2, seed=42):
     """Split class names into train/val/test with a fixed seed, so the
     split is reproducible across runs and nobody has to remember to pass
     the same random state twice."""
+    # Splits class names, not images, so a class never leaks across roles.
     rng = random.Random(seed)
     shuffled = classes[:]
     rng.shuffle(shuffled)
@@ -86,10 +87,13 @@ class FSS1000Episodic(Dataset):
         self.class_names = class_names
         self.k_shot = k_shot
         self.img_size = img_size
+        # No fixed "true" length — episodes are randomly sampled, this just
+        # sets how many count as one epoch.
         self.episodes_per_epoch = episodes_per_epoch
         self.augment = augment
         self.seed = seed
 
+        # Pre-list pairs up front to avoid repeated filesystem listing.
         self.class_pairs = {
             c: _list_pairs(self.data_root / c) for c in class_names
         }
@@ -104,10 +108,13 @@ class FSS1000Episodic(Dataset):
         return self.episodes_per_epoch
 
     def _load(self, img_path, mask_path, gen):
+        # Fixed size so different classes/resolutions can batch together;
+        # NEAREST keeps the mask strictly binary after resizing.
         img = Image.open(img_path).convert("RGB").resize((self.img_size, self.img_size))
         mask = Image.open(mask_path).convert("L").resize((self.img_size, self.img_size), Image.NEAREST)
 
         if self.augment:
+            # Training-only augmentation for variety; val/test use real images.
             if torch.rand(1, generator=gen).item() < 0.5:
                 img = TF.hflip(img)
                 mask = TF.hflip(mask)
@@ -131,14 +138,19 @@ class FSS1000Episodic(Dataset):
             std=[0.229, 0.224, 0.225],
         )
 
+        # Clean 0/1 ground-truth mask, used by both baseline CE loss and
+        # prototype masked-averaging.
         mask_t = (TF.to_tensor(mask) > 0.5).float().squeeze(0)
         return img_t, mask_t
 
     def __getitem__(self, idx):
+        # Deterministic per-episode RNG: same idx+seed reproduces the same episode.
         gen = torch.Generator().manual_seed(self.seed * 100000 + idx)
+        # Support and query always share one randomly-picked class.
         cls = self.class_names[torch.randint(len(self.class_names), (1,), generator=gen).item()]
         pairs = self.class_pairs[cls]
 
+        # Shuffle this class's images: first k as support, next as query.
         order = torch.randperm(len(pairs), generator=gen).tolist()
         support_idx = order[:self.k_shot]
         query_idx = order[self.k_shot]

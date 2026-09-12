@@ -20,13 +20,21 @@ import torch
 from torch.utils.data import DataLoader
 
 from src.dataset import FSS1000Episodic, class_level_split, discover_classes, fss_collate
-from src.models import build_backbone, SegHead, baseline_loss, prototype_loss
+from src.models import (
+    build_backbone,
+    SegHead,
+    baseline_query_logits,
+    adapt_baseline,
+    prototype_loss,
+)
 from src.metrics import binary_mask_metrics, RunningStats
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def load_backbone_and_head(ckpt_path, method):
+    # Must match the architecture used when the checkpoint was saved, or
+    # load_state_dict fails on a shape mismatch.
     ckpt = torch.load(ckpt_path, map_location=DEVICE)
     backbone = build_backbone().to(DEVICE)
     backbone.load_state_dict(ckpt["backbone"])
@@ -42,6 +50,7 @@ def load_backbone_and_head(ckpt_path, method):
 
 @torch.no_grad()
 def run_eval(backbone, head, method, weighted, data_root, test_classes, k_shot, n_episodes, seed, img_size):
+    # augment=False: evaluate on the real images, not augmented variants.
     ds = FSS1000Episodic(
         data_root, test_classes, k_shot=k_shot, img_size=img_size,
         episodes_per_epoch=n_episodes, augment=False, seed=seed,
@@ -52,7 +61,14 @@ def run_eval(backbone, head, method, weighted, data_root, test_classes, k_shot, 
         s_imgs, s_masks = s_imgs.to(DEVICE), s_masks.to(DEVICE)
         q_img, q_mask = q_img.to(DEVICE), q_mask.to(DEVICE)
         if method == "baseline":
-            _, logits = baseline_loss(backbone, head, s_imgs, s_masks)
+            # Mirrors train.py's validation: adapt_baseline needs
+            # gradients enabled internally, despite the outer no_grad.
+            with torch.enable_grad():
+                adapted_backbone, adapted_head = adapt_baseline(
+                    backbone, head, s_imgs, s_masks,
+                )
+            logits = baseline_query_logits(adapted_backbone, adapted_head, q_img)
+            del adapted_backbone, adapted_head
         else:
             _, logits = prototype_loss(backbone, s_imgs, s_masks, q_img, q_mask, weighted=weighted)
         stats.update(binary_mask_metrics(logits, q_mask))
@@ -75,6 +91,8 @@ def main():
 
     with open(args.splits_file) as f:
         splits = json.load(f)
+    # Same test classes and same seeds for both methods: a fair, paired
+    # comparison, not just "whoever got easier episodes".
     test_classes = splits["test"]
     print(f"Evaluating on {len(test_classes)} held-out test classes.")
 
@@ -88,6 +106,7 @@ def main():
             ("prototype", proto_backbone, None),
         ]:
             per_seed = []
+            # Run per seed and keep separately, to compute std afterward.
             for seed in args.seeds:
                 summary = run_eval(
                     backbone, head, method, args.weighted, args.data_root, test_classes,
@@ -97,6 +116,8 @@ def main():
                 print(f"k={k} method={method} seed={seed}: "
                       f"mIoU={summary['mIoU'][0]:.4f}  F1={summary['F1'][0]:.4f}")
 
+            # Collapse to mean +/- std — the actual headline number, not
+            # any single seed's result.
             miou_vals = [s["mIoU"][0] for s in per_seed]
             f1_vals = [s["F1"][0] for s in per_seed]
             import statistics
