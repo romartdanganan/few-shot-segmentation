@@ -129,10 +129,11 @@ def compute_prototypes(support_feats, support_occupancy, weighted=False):
     # full-res mask gets downsampled to the smaller feature map.
     b, k, c, h, w = support_feats.shape
 
-    # Flatten k-shot + spatial dims: only fg/bg identity matters, not
-    # which image or location a vector came from.
-    feats = support_feats.view(b, k * h * w, c)
-    occ = support_occupancy.view(b, k * h * w, 1)
+    # Move the channel dim to the end BEFORE flattening k,h,w together, so
+    # each row of the flattened tensor is one location's full channel
+    # vector, not a scrambled reinterpretation of raw memory order.
+    feats = support_feats.permute(0, 1, 3, 4, 2).reshape(b, k * h * w, c)
+    occ = support_occupancy.reshape(b, k * h * w, 1)
 
     # occ doubles as the foreground averaging weight; 1-occ for background.
     fg_weight, bg_weight = occ, 1 - occ
