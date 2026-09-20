@@ -5,19 +5,20 @@
   "k_shot": 5,
   "seed": 0,
   "img_size": 256,
+  "note": "post-fix (compute_prototypes reshape bug fixed) - see results/prototype_weighted_k5_s0_buggy.json for the pre-fix run",
   "epochs": [
-    {"epoch": 1,  "train_loss": 0.4955, "val_mIoU": 0.7064, "val_F1": 0.6814},
-    {"epoch": 2,  "train_loss": 0.2300, "val_mIoU": 0.7334, "val_F1": 0.7207},
-    {"epoch": 3,  "train_loss": 0.1825, "val_mIoU": 0.7478, "val_F1": 0.7388},
-    {"epoch": 4,  "train_loss": 0.1467, "val_mIoU": 0.7452, "val_F1": 0.7148},
-    {"epoch": 5,  "train_loss": 0.1420, "val_mIoU": 0.7531, "val_F1": 0.7448},
-    {"epoch": 6,  "train_loss": 0.1385, "val_mIoU": 0.7747, "val_F1": 0.7810},
-    {"epoch": 7,  "train_loss": 0.1224, "val_mIoU": 0.7756, "val_F1": 0.7677},
-    {"epoch": 8,  "train_loss": 0.1133, "val_mIoU": 0.7914, "val_F1": 0.8057},
-    {"epoch": 9,  "train_loss": 0.1244, "val_mIoU": 0.7810, "val_F1": 0.7933},
-    {"epoch": 10, "train_loss": 0.1537, "val_mIoU": 0.7815, "val_F1": 0.7989}
+    {"epoch": 1,  "train_loss": 0.7027, "val_mIoU": 0.7426, "val_F1": 0.7399},
+    {"epoch": 2,  "train_loss": 0.2336, "val_mIoU": 0.7545, "val_F1": 0.7539},
+    {"epoch": 3,  "train_loss": 0.2248, "val_mIoU": 0.7612, "val_F1": 0.7747},
+    {"epoch": 4,  "train_loss": 0.2177, "val_mIoU": 0.7719, "val_F1": 0.7767},
+    {"epoch": 5,  "train_loss": 0.2031, "val_mIoU": 0.7788, "val_F1": 0.7887},
+    {"epoch": 6,  "train_loss": 0.1476, "val_mIoU": 0.7903, "val_F1": 0.8010},
+    {"epoch": 7,  "train_loss": 0.1443, "val_mIoU": 0.7860, "val_F1": 0.7960},
+    {"epoch": 8,  "train_loss": 0.1297, "val_mIoU": 0.7835, "val_F1": 0.7950},
+    {"epoch": 9,  "train_loss": 0.1241, "val_mIoU": 0.7876, "val_F1": 0.7972},
+    {"epoch": 10, "train_loss": 0.2103, "val_mIoU": 0.7665, "val_F1": 0.7678}
   ],
-  "best_val_mIoU": 0.7914,
-  "best_epoch": 8,
+  "best_val_mIoU": 0.7903,
+  "best_epoch": 6,
   "checkpoint": "runs/prototype_weighted_k5_s0/best.pt"
 }
