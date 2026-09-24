@@ -171,6 +171,104 @@ def test_episode_varies_by_epoch():
         return ok
 
 
+def test_class_split_disjoint_and_sized():
+    """
+    class_level_split should partition every class into exactly one of
+    train/val/test (no drops, no duplicates), size each split according
+    to val_frac/test_frac, and be reproducible for a fixed seed.
+    """
+    from src.dataset import class_level_split
+
+    classes = [f"class_{i}" for i in range(100)]
+    splits = class_level_split(classes, val_frac=0.1, test_frac=0.2, seed=42)
+    train, val, test = splits["train"], splits["val"], splits["test"]
+
+    ok = True
+    ok &= check("train/val disjoint", set(train).isdisjoint(val))
+    ok &= check("train/test disjoint", set(train).isdisjoint(test))
+    ok &= check("val/test disjoint", set(val).isdisjoint(test))
+    ok &= check("every class assigned to exactly one split, none dropped",
+                set(train) | set(val) | set(test) == set(classes)
+                and len(train) + len(val) + len(test) == len(classes))
+    ok &= check("split sizes match val_frac/test_frac (70/10/20 for n=100)",
+                len(train) == 70 and len(val) == 10 and len(test) == 20)
+
+    splits_again = class_level_split(classes, val_frac=0.1, test_frac=0.2, seed=42)
+    ok &= check("same seed reproduces an identical split", splits_again == splits)
+    return ok
+
+
+def _make_dummy_class(class_dir, n):
+    """n distinctly-colored (image, mask) pairs — real overlap or shape
+    mistakes show up as exact tensor (mis)matches, not just look-alikes."""
+    from PIL import Image
+
+    class_dir.mkdir(parents=True, exist_ok=True)
+    for i in range(1, n + 1):
+        Image.new("RGB", (8, 8), color=(i * 20 % 256, 0, 0)).save(class_dir / f"{i}.jpg")
+        Image.new("L", (8, 8), color=255).save(class_dir / f"{i}.png")
+
+
+def test_support_query_never_overlap():
+    """
+    Regression check for accidental support/query overlap: across many
+    episodes (multiple idx, multiple epochs), the query image should
+    never come out identical to any of its own episode's k support
+    images. augment=False so a real overlap would show up as an exact
+    tensor match, not just a similar-looking crop.
+    """
+    import tempfile
+    from pathlib import Path
+    from src.dataset import FSS1000Episodic
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _make_dummy_class(Path(tmp) / "dummy_class", n=10)
+        ds = FSS1000Episodic(tmp, ["dummy_class"], k_shot=3, img_size=8,
+                              episodes_per_epoch=20, augment=False, seed=0)
+
+        overlap_found = False
+        for epoch in range(2):
+            ds.set_epoch(epoch)
+            for i in range(len(ds)):
+                support_imgs, _, query_img, _, _ = ds[i]
+                if any(torch.equal(query_img, support_imgs[k]) for k in range(support_imgs.shape[0])):
+                    overlap_found = True
+
+        return check("query image never duplicates a support image, across episodes/epochs",
+                     not overlap_found)
+
+
+def test_fss_collate_shapes():
+    """fss_collate should stack a batch of episodes into the (B, k, ...) /
+    (B, ...) shapes the training/eval code assumes, and keep class names
+    as a plain list of strings (not tensors)."""
+    import tempfile
+    from pathlib import Path
+    from src.dataset import FSS1000Episodic, fss_collate
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _make_dummy_class(Path(tmp) / "dummy_class", n=6)
+        k_shot, img_size, batch_size = 2, 8, 3
+        ds = FSS1000Episodic(tmp, ["dummy_class"], k_shot=k_shot, img_size=img_size,
+                              episodes_per_epoch=batch_size, augment=False, seed=0)
+        batch = [ds[i] for i in range(batch_size)]
+        s_imgs, s_masks, q_imgs, q_masks, classes = fss_collate(batch)
+
+        ok = True
+        ok &= check("support_imgs shape (B, k, 3, H, W)",
+                    tuple(s_imgs.shape) == (batch_size, k_shot, 3, img_size, img_size))
+        ok &= check("support_masks shape (B, k, H, W)",
+                    tuple(s_masks.shape) == (batch_size, k_shot, img_size, img_size))
+        ok &= check("query_imgs shape (B, 3, H, W)",
+                    tuple(q_imgs.shape) == (batch_size, 3, img_size, img_size))
+        ok &= check("query_masks shape (B, H, W)",
+                    tuple(q_masks.shape) == (batch_size, img_size, img_size))
+        ok &= check("classes is a plain list of strings, length B",
+                    isinstance(classes, list) and len(classes) == batch_size
+                    and all(isinstance(c, str) for c in classes))
+        return ok
+
+
 if __name__ == "__main__":
     results = [
         test_prototype_separates_known_classes(),
@@ -178,5 +276,8 @@ if __name__ == "__main__":
         test_baseline_head_shapes(),
         test_adapt_baseline_source_check(),
         test_episode_varies_by_epoch(),
+        test_class_split_disjoint_and_sized(),
+        test_support_query_never_overlap(),
+        test_fss_collate_shapes(),
     ]
     print(f"\n{sum(results)}/{len(results)} checks passed.")
