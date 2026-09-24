@@ -120,11 +120,63 @@ def test_adapt_baseline_source_check():
     return ok
 
 
+def test_episode_varies_by_epoch():
+    """
+    Regression test for the frozen-episode bug: for a same idx across
+    epochs, the episode should change. Checks several idx values and
+    requires that NOT ALL of them collide between epoch 0 and epoch 1
+    — a single-idx version of this test can pass or fail by pure chance
+    (few images means real collisions happen sometimes), so this checks
+    enough idx values that an all-collide false failure is astronomically
+    unlikely if the fix is actually working.
+    """
+    import tempfile
+    from pathlib import Path
+    from PIL import Image
+    from src.dataset import FSS1000Episodic
+
+    with tempfile.TemporaryDirectory() as tmp:
+        class_dir = Path(tmp) / "dummy_class"
+        class_dir.mkdir()
+        # 20 distinctly-colored images, so collisions across epochs at any
+        # one idx are plausible sometimes, but not across all 8 idx values
+        # tested below unless the fix genuinely isn't working.
+        for i in range(1, 21):
+            img = Image.new("RGB", (8, 8), color=(i * 12, 0, 0))
+            mask = Image.new("L", (8, 8), color=255)
+            img.save(class_dir / f"{i}.jpg")
+            mask.save(class_dir / f"{i}.png")
+
+        n_idx = 8
+        ds = FSS1000Episodic(tmp, ["dummy_class"], k_shot=1, img_size=8, episodes_per_epoch=n_idx, seed=0)
+
+        ds.set_epoch(0)
+        epoch0_queries = [ds[i][2] for i in range(n_idx)]
+        epoch0_queries_again = [ds[i][2] for i in range(n_idx)]
+
+        ds.set_epoch(1)
+        epoch1_queries = [ds[i][2] for i in range(n_idx)]
+
+        ds.set_epoch(0)
+        epoch0_queries_c = [ds[i][2] for i in range(n_idx)]
+
+        same_epoch_matches = all(torch.equal(a, b) for a, b in zip(epoch0_queries, epoch0_queries_again))
+        any_differ_across_epoch = any(not torch.equal(a, b) for a, b in zip(epoch0_queries, epoch1_queries))
+        returning_matches = all(torch.equal(a, b) for a, b in zip(epoch0_queries, epoch0_queries_c))
+
+        ok = True
+        ok &= check("same epoch, same idx -> identical episode (all 8 idx)", same_epoch_matches)
+        ok &= check("different epoch -> at least one of 8 idx differs", any_differ_across_epoch)
+        ok &= check("returning to a prior epoch reproduces its episodes (all 8 idx)", returning_matches)
+        return ok
+
+
 if __name__ == "__main__":
     results = [
         test_prototype_separates_known_classes(),
         test_weighted_ablation_downweights_boundary(),
         test_baseline_head_shapes(),
         test_adapt_baseline_source_check(),
+        test_episode_varies_by_epoch(),
     ]
     print(f"\n{sum(results)}/{len(results)} checks passed.")

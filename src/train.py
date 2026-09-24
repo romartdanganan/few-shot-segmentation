@@ -85,7 +85,7 @@ def main():
         args.data_root, splits["val"], k_shot=args.k_shot, img_size=args.img_size,
         episodes_per_epoch=40, augment=False, seed=args.seed + 1000,
     )
-    train_loader = DataLoader(train_ds, batch_size=args.batch_size, collate_fn=fss_collate)
+    train_loader = DataLoader(train_ds, batch_size=args.batch_size, collate_fn=fss_collate, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=args.batch_size, collate_fn=fss_collate)
 
     print(f"Device: {DEVICE}")
@@ -105,6 +105,7 @@ def main():
 
     best_val_miou = -1.0
     for epoch in range(args.epochs):
+        train_ds.set_epoch(epoch)
         backbone.train()
         if head is not None:
             head.train()

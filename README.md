@@ -32,10 +32,18 @@ mean ± standard deviation of **mIoU** and **F1-score**.
       fits comfortably in 8 GB of VRAM on a GTX/RTX 3070 (~200 MB peak usage at 256×256)
 - [x] Full data pipeline with class-level train/val/test splits (no leakage between seen and novel classes)
 - [x] Baseline and prototype-based training scripts
-- [x] Evaluation protocol (k=1/k=5, multi-seed, mean ± std)
-- [ ] Full training run and final results (in progress)
-- [ ] Distance-weighted ablation results
-- [ ] Qualitative examples and per-class error analysis
+- [x] Evaluation protocol (k=1/k=5, multi-seed, mean ± std) — `runs/eval_results*.json`
+- [x] Full training runs and results for baseline (k=1, k=5) and prototype (k=1, k=5) — `results/*.json`
+- [x] Distance-weighted ablation trained; single-seed result only so far, multi-seed eval still pending
+- [x] Qualitative examples and per-class error analysis for the baseline — `analysis/baseline_k5/`
+- [ ] Per-class/qualitative analysis re-run for prototype against the corrected checkpoint (previous run used the pre-fix checkpoint)
+- [ ] Multi-seed evaluation of the weighted ablation
+
+**Known issue, fixed 2026-09 (see commit history):** training episodes were unintentionally
+identical across epochs — the per-episode RNG seed depended only on the dataset seed and item
+index, never the epoch, so `episodes_per_epoch=200` replayed the same 200 episodes every epoch
+instead of sampling fresh ones. Fixed via `FSS1000Episodic.set_epoch()`. All training results
+above predate this fix and should be re-run before being treated as final.
 
 ## Repository structure
 

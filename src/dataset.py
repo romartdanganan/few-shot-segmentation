@@ -92,6 +92,10 @@ class FSS1000Episodic(Dataset):
         self.episodes_per_epoch = episodes_per_epoch
         self.augment = augment
         self.seed = seed
+        # Bumped once per training epoch via set_epoch() so __getitem__
+        # samples a genuinely different episode for the same idx each
+        # epoch, instead of replaying an identical fixed set every time.
+        self._epoch = 0
 
         # Pre-list pairs up front to avoid repeated filesystem listing.
         self.class_pairs = {
@@ -106,6 +110,12 @@ class FSS1000Episodic(Dataset):
 
     def __len__(self):
         return self.episodes_per_epoch
+
+    def set_epoch(self, epoch):
+        """Call once per training epoch (val/test datasets should never
+        call this, so their episodes stay fixed and comparable across
+        epochs/runs)."""
+        self._epoch = epoch
 
     def _load(self, img_path, mask_path, gen):
         # Fixed size so different classes/resolutions can batch together;
@@ -144,8 +154,11 @@ class FSS1000Episodic(Dataset):
         return img_t, mask_t
 
     def __getitem__(self, idx):
-        # Deterministic per-episode RNG: same idx+seed reproduces the same episode.
-        gen = torch.Generator().manual_seed(self.seed * 100000 + idx)
+        # Deterministic per-episode RNG: same (seed, epoch, idx) reproduces
+        # the same episode. Epoch is folded in so training sees a fresh
+        # episode for a given idx each epoch, while eval/test datasets
+        # (which never call set_epoch) stay fully reproducible.
+        gen = torch.Generator().manual_seed(self.seed * 1_000_000 + self._epoch * 100_003 + idx)
         # Support and query always share one randomly-picked class.
         cls = self.class_names[torch.randint(len(self.class_names), (1,), generator=gen).item()]
         pairs = self.class_pairs[cls]

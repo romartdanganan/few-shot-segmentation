@@ -1,3 +1,9 @@
 transformers>=4.40
 tensorboard>=2.15
 Pillow>=10.0
+numpy>=1.24
+
+# torch and torchvision are not pinned here since the correct build
+# depends on your CUDA version. Install separately first, e.g.:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+# (swap cu121 for your CUDA version, or the CPU build if you have no GPU)
