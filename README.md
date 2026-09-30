@@ -4,46 +4,26 @@ Few-shot semantic segmentation on [FSS-1000](https://github.com/HKUSTCV/FSS-1000
 fine-tuning against an episodic, prototype-based training objective on a shared
 [SegFormer (MiT-B0)](https://arxiv.org/abs/2105.15203) backbone.
 
-This started as a university project (AIML339, Victoria University of Wellington) and is developed
-here as a from-scratch implementation with its own class-level data splits, training loop, and
-evaluation protocol.
+AIML339 capstone project, Victoria University of Wellington. The class-level data splits, episodic
+sampler, both training objectives, the boundary-weighted variant, the evaluation protocol and the
+analysis scripts are implemented in this repository; the pretrained SegFormer weights and the
+libraries in `requirements.txt` are reused unmodified.
 
 ## The idea
 
-Semantic segmentation models need a lot of pixel-level labels. New object classes almost never have
-that much data available. This project asks: **can a model learn to segment a brand-new class from
-just 1–5 labelled examples**, using prototype-based episodic training instead of standard fine-tuning?
+Segmentation models normally learn from thousands of pixel-level masks per class. This project asks:
+**can a model segment a brand-new class from just 1 or 5 labelled examples**, and does
+prototype-based episodic training do this better than standard fine-tuning?
 
-Two methods are trained on the *same* backbone, *same* data budget, and *same* evaluation protocol, so
-any difference in results comes from the training objective itself:
+All methods share the same backbone, data, optimiser and evaluation episodes, so differences come
+from the training objective:
 
-| | Method A — Baseline | Method B — Prototype-based |
+| | Fine-tune (baseline) | Proto (prototype-based) |
 |---|---|---|
-| Backbone | SegFormer MiT-B0 (pretrained, ADE20K) | SegFormer MiT-B0 (shared) |
-| Training | Standard cross-entropy fine-tuning on the k-shot support set | Episodic: masked-average-pool a class prototype from the support set, classify query pixels by distance to it |
-| Ablation | — | Distance-weighted variant that down-weights support pixels near the mask boundary |
-
-Both are evaluated at **k=1** and **k=5** shots, across multiple episodes and random seeds, reporting
-mean ± standard deviation of **mIoU** and **F1-score**.
-
-## Project status
-
-- [x] Feasibility pilot (`scripts/pilot_test.py`) — confirmed the training pipeline is correct and
-      fits comfortably in 8 GB of VRAM on a GTX/RTX 3070 (~200 MB peak usage at 256×256)
-- [x] Full data pipeline with class-level train/val/test splits (no leakage between seen and novel classes)
-- [x] Baseline and prototype-based training scripts
-- [x] Evaluation protocol (k=1/k=5, multi-seed, mean ± std) — `runs/eval_results*.json`
-- [x] Full training runs and results for baseline (k=1, k=5) and prototype (k=1, k=5) — `results/*.json`
-- [x] Distance-weighted ablation trained; single-seed result only so far, multi-seed eval still pending
-- [x] Qualitative examples and per-class error analysis for the baseline — `analysis/baseline_k5/`
-- [ ] Per-class/qualitative analysis re-run for prototype against the corrected checkpoint (previous run used the pre-fix checkpoint)
-- [ ] Multi-seed evaluation of the weighted ablation
-
-**Known issue, fixed 2026-09 (see commit history):** training episodes were unintentionally
-identical across epochs — the per-episode RNG seed depended only on the dataset seed and item
-index, never the epoch, so `episodes_per_epoch=200` replayed the same 200 episodes every epoch
-instead of sampling fresh ones. Fixed via `FSS1000Episodic.set_epoch()`. All training results
-above predate this fix and should be re-run before being treated as final.
+| Backbone | SegFormer MiT-B0 encoder (ImageNet-1K, then ADE20K) | same, shared initialisation |
+| Training | 1x1 conv head, cross-entropy on the support images of each training episode | masked average pooling of support features into foreground/background prototypes; query pixels scored by distance to them; cross-entropy on the query |
+| New class at test time | copy the model, a few gradient steps on the support set, predict the query | build prototypes from the support set, one forward pass |
+| Ablation | | Proto-BW: prototypes down-weight ambiguous mask-boundary locations by \|2m - 1\| |
 
 ## Repository structure
 
@@ -51,102 +31,114 @@ above predate this fix and should be re-run before being treated as final.
 .
 ├── src/
 │   ├── dataset.py     # FSS-1000 episodic dataset + class-level splitting
-│   ├── models.py       # SegFormer backbone, baseline head, prototype loss (Eq. 1–2)
-│   ├── train.py        # training loop for either method
-│   ├── evaluate.py     # k=1/k=5 evaluation across seeds, mean ± std
-│   └── metrics.py       # mIoU / F1
+│   ├── models.py      # SegFormer encoder, baseline head + test-time adaptation, prototype loss
+│   ├── train.py       # training loop for either method; writes history.json per run
+│   ├── evaluate.py    # val/test evaluation over seeds; per-seed scores and timing to JSON
+│   └── metrics.py     # mIoU (mean of foreground and background IoU) and foreground F1
 ├── scripts/
-│   └── pilot_test.py   # the original feasibility pilot (synthetic data, GPU/memory check)
-├── configs/            # class-level train/val/test splits get written here
-├── requirements.txt
-└── README.md
+│   ├── run_experiments.py  # the full protocol: tuning, multi-seed training, test evaluation
+│   ├── stats_and_figures.py# every table, statistical test and figure in the report
+│   ├── analyze.py          # per-class results and qualitative examples
+│   ├── sanity_check.py     # synthetic-input tests of the core logic (no GPU or data needed)
+│   └── pilot_test.py       # original feasibility pilot (synthetic data, memory check)
+├── configs/class_splits.json   # the fixed 700/100/200 class split (seed 0)
+├── experiments/        # JSON logs of every run behind the final report (checkpoints not committed)
+└── requirements.txt
 ```
 
 ## Setup
 
 ```bash
 python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
+venv\Scripts\activate            # Linux/macOS: source venv/bin/activate
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121   # match your CUDA
 pip install -r requirements.txt
+python -m scripts.sanity_check   # should print "9/9 checks passed"
 ```
 
-## Dataset
+## Data preparation
 
-Download [FSS-1000](https://github.com/HKUSTCV/FSS-1000) (also mirrored on
-[Kaggle](https://www.kaggle.com/datasets/meowmeowmeowmeowmeow/fss1000-a-1000-class-fewshot-segmentation))
-and unzip it so each class has its own folder of numbered image/mask pairs, e.g.:
+Download [FSS-1000](https://github.com/HKUSTCV/FSS-1000) (also on
+[Kaggle](https://www.kaggle.com/datasets/meowmeowmeowmeowmeow/fss1000-a-1000-class-fewshot-segmentation)).
+It has 1000 classes with 10 image/mask pairs each (224x224). It is not included in this repository.
+Unzip it so each class is a folder of numbered pairs:
 
-This project uses FSS-1000, containing 1000 object classes with 10 annotated image-mask pairs per class.
-
-The dataset is not included in this repository.
-
-Expected local layout:
-
+```
 data/
 └── fewshot_data/
     ├── abacus/
     │   ├── 1.jpg
     │   ├── 1.png
-    │   ├── 2.jpg
-    │   ├── 2.png
     │   └── ...
-    ├── accordion/
     └── ...
-
-The loader uses a class-level split of:
-
-- 700 training classes
-- 100 validation classes
-- 200 test classes
-
-There is no class overlap between splits.
-
-Both 1-shot and 5-shot episodes consist of a k-shot support set and one query image.
-
-## Usage
-
-**Train the baseline:**
-```bash
-python -m src.train --data-root data/FSS-1000 --method baseline --img-size 256
 ```
 
-**Train the prototype-based method:**
+The class-level split in `configs/class_splits.json` (700 train / 100 validation / 200 test classes,
+created once with seed 0) is used by every script, so no class appears in more than one role.
+Validation classes are used for tuning and checkpoint selection only; test classes are used only
+for the final numbers.
+
+## Reproducing the report
+
+One resumable command runs the whole protocol (re-run the same command after a crash or reboot;
+finished runs are skipped):
+
 ```bash
-python -m src.train --data-root data/FSS-1000 --method prototype --img-size 256
+python -m scripts.run_experiments --data-root data/fewshot_data --smoke   # quick pipeline check
+python -m scripts.run_experiments --data-root data/fewshot_data           # full protocol
+python -m scripts.stats_and_figures                                       # tables, tests, figures
 ```
 
-**Train the distance-weighted ablation:**
+What the full protocol does (all settings are logged to `experiments/state.json`):
+
+1. **Tuning, one aspect at a time, on the validation classes** (training seed 0, 5-shot, selection by
+   mean validation mIoU over 3 x 50 episodes). Starting points follow the literature: AdamW as in
+   SegFormer, batch size of one episode as in PANet.
+   - learning rate {3e-5, 1e-4, 3e-4} for each method
+   - training epochs {10, 20} (200 episodes each)
+   - Fine-tune: test-time adaptation steps {0, 1, 5, 10}, then its learning rate {3e-5, 1e-4, 3e-4}
+   - Proto: distance {squared Euclidean / sqrt(C), cosine x 20 as in PANet}
+2. **Final training** with the chosen settings for Fine-tune, Proto and Proto-BW over 10 training seeds.
+3. **Test evaluation** of every final model at k=1 and k=5 over 10 evaluation seeds x 50 episodes, with
+   identical episodes for every model; plus Fine-tune without test-time adaptation as a diagnostic.
+4. **Per-class analysis and qualitative examples** for the seed-0 models.
+
+Which files correspond to the report:
+
+| Report item | File |
+|---|---|
+| Parameter-tuning tables | `experiments/report/tuning_tables.md`, `experiments/state.json` |
+| Main results table | `experiments/report/final_table.md` (from `experiments/test/*.json`) |
+| Statistical tests | `experiments/report/stats.md` / `stats.json` |
+| Cost table | `experiments/report/cost_table.md` (from each run's `history.json`) |
+| Validation curves / run distributions | `experiments/report/fig_val.png`, `fig_box.png` |
+| Per-class results, qualitative examples | `experiments/analysis/*_k5/` |
+| Every training run (config, per-epoch loss and validation, time, memory) | `experiments/train/*/history.json` |
+
+Individual scripts can also be run directly, e.g.:
+
 ```bash
-python -m src.train --data-root data/FSS-1000 --method prototype --weighted --img-size 256
+python -m src.train --method prototype --data-root data/fewshot_data --lr 1e-4 --epochs 10 --seed 0
+python -m src.evaluate --data-root data/fewshot_data --split val --prototype-ckpt runs/prototype_k5_s0/best.pt --shots 5 --seeds 0 1 2
+tensorboard --logdir experiments/train
 ```
 
-**Evaluate both methods at k=1 and k=5, across 3 seeds:**
-```bash
-python -m src.evaluate --data-root data/FSS-1000 \
-    --baseline-ckpt runs/baseline_k5_s0/best.pt \
-    --prototype-ckpt runs/prototype_k5_s0/best.pt \
-    --shots 1 5 --seeds 0 1 2
-```
+## Reproducibility and randomness
 
-Training progress can be monitored with TensorBoard:
-```bash
-tensorboard --logdir runs
-```
+- Training episodes depend on the training seed and the epoch; validation and test episodes depend
+  only on the evaluation seed, so every model sees the same validation and test episodes.
+- The baseline's test-time adaptation runs with stochastic depth active, so its random generator is
+  seeded per evaluation seed; repeated evaluations give identical numbers.
+- Seeds are fixed integers (never clock time) and are recorded in every JSON file.
 
-## Current development status
+## Development history
 
-Real FSS-1000 integration has been verified with:
-
-- 1000 detected classes
-- 700/100/200 train/validation/test class split
-- 1-shot and 5-shot episodic sampling
-- CUDA training on an RTX 3070
-- standard fine-tuning baseline
-- prototype-based episodic training
-- distance-weighted prototype ablation
-
-Short smoke tests have been completed on all three training conditions.
-
+Two silent defects were found and fixed during the project (see the commit history):
+the prototype pooling reshaped a (batch, k, C, h, w) tensor without first moving the channel axis
+(caught by `scripts/sanity_check.py`), and training episodes were identical in every epoch
+(found in a code review; now covered by a regression test). All results in `experiments/` come from
+code after both fixes. Results in `results/` and `analysis/` are earlier single-seed runs kept for
+reference.
 
 ## References
 
@@ -157,4 +149,4 @@ Short smoke tests have been completed on all three training conditions.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE).
