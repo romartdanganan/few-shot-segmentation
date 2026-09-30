@@ -14,15 +14,15 @@ env/
 .DS_Store
 Thumbs.db
 
-# --- Dataset (never commit this — it's large and not yours to redistribute) ---
+# --- Dataset (never commit this - it's large and not yours to redistribute) ---
 data/
 
 # --- Training outputs ---
-# Checkpoints are large and regenerable — never commit these.
+# Checkpoints are large and regenerable - never commit these.
 *.pt
 *.pth
 # But keep the small TensorBoard scalar logs (no weights, just numbers)
-# as real evidence of each run — ignore everything else under runs/.
+# as real evidence of each run - ignore everything else under runs/.
 runs/*
 !runs/*/
 !runs/*/tb/
@@ -30,3 +30,8 @@ runs/*
 
 # --- Jupyter, if you ever add notebooks ---
 .ipynb_checkpoints/
+
+# --- Experiment outputs (scripts/run_experiments.py) ---
+# Checkpoints are already ignored by *.pt above; the small JSON/text logs
+# under experiments/ are kept as the evidence behind the report.
+experiments_smoke/
