@@ -1,5 +1,5 @@
 """
-src/metrics.py — mIoU and F1 for binary (foreground vs. background)
+src/metrics.py - mIoU and F1 for binary (foreground vs. background)
 segmentation, matching the metrics named in the Design Report (Section
 III-D / IV).
 """
@@ -55,7 +55,7 @@ class RunningStats:
     def summary(self):
         import statistics
         out = {}
-        # (mean, std) per metric — std shows how sensitive results are to
+        # (mean, std) per metric - std shows how sensitive results are to
         # which support examples got sampled.
         for k, vals in self.values.items():
             mean = statistics.mean(vals)

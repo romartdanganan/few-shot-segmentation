@@ -1,5 +1,5 @@
 """
-src/dataset.py — FSS-1000 episodic dataset loader.
+src/dataset.py - FSS-1000 episodic dataset loader.
 
 Expected folder layout (this is FSS-1000's standard release layout):
 
@@ -14,7 +14,7 @@ Expected folder layout (this is FSS-1000's standard release layout):
             ...
 
 If your download differs (e.g. images/masks split into separate
-subfolders), adjust `_list_pairs()` below — everything else in this
+subfolders), adjust `_list_pairs()` below - everything else in this
 file is independent of that detail.
 
 Class-level split: classes are split into train/val/test *once*, with a
@@ -87,7 +87,7 @@ class FSS1000Episodic(Dataset):
         self.class_names = class_names
         self.k_shot = k_shot
         self.img_size = img_size
-        # No fixed "true" length — episodes are randomly sampled, this just
+        # No fixed "true" length - episodes are randomly sampled, this just
         # sets how many count as one epoch.
         self.episodes_per_epoch = episodes_per_epoch
         self.augment = augment

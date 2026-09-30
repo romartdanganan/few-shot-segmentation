@@ -1,5 +1,5 @@
 """
-pilot_test.py — AIML339 feasibility pilot
+pilot_test.py - AIML339 feasibility pilot
 
 Purpose (matches Design Report, Section III-E "Feasibility and Pilot Plan",
 and Aaron's approval-email advice): before committing to the full training
@@ -41,7 +41,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 # --------------------------------------------------------------------------
-# Synthetic episodic dataset — stand-in for FSS-1000 while I validate the
+# Synthetic episodic dataset - stand-in for FSS-1000 while I validate the
 # pipeline. Each "episode" is one class: k support (image, binary mask)
 # pairs plus one query (image, binary mask) pair. The object is a random
 # blob so the model has something non-trivial, but consistent, to segment.
@@ -88,7 +88,7 @@ class SyntheticFewShotDataset(torch.utils.data.Dataset):
 
 
 # --------------------------------------------------------------------------
-# Backbone — matches Design Report III-A: pretrained SegFormer MiT-B0,
+# Backbone - matches Design Report III-A: pretrained SegFormer MiT-B0,
 # shared between both methods.
 # --------------------------------------------------------------------------
 def build_backbone():
@@ -103,7 +103,7 @@ def extract_features(backbone, images):
 
 
 # --------------------------------------------------------------------------
-# Method A: baseline — cross-entropy fine-tuning with a small conv head.
+# Method A: baseline - cross-entropy fine-tuning with a small conv head.
 # --------------------------------------------------------------------------
 class SegHead(nn.Module):
     def __init__(self, in_channels, n_classes=2):
@@ -128,17 +128,17 @@ def baseline_step(backbone, head, support_imgs, support_masks):
 
 
 # --------------------------------------------------------------------------
-# Method B: proposed — prototype-based episodic training (Eq. 1 and 2).
+# Method B: proposed - prototype-based episodic training (Eq. 1 and 2).
 # --------------------------------------------------------------------------
 def compute_prototypes(support_feats, support_occupancy, weighted=False):
     """Eq. (1): p_c = (1/|S_c|) * sum f_theta(x) . y, masked average pooling.
     support_feats: (B, k, C, h, w).
-    support_occupancy: (B, k, h, w) in [0, 1] — the *fraction* of each
+    support_occupancy: (B, k, h, w) in [0, 1] - the *fraction* of each
         low-res cell covered by the mask (from area/bilinear downsampling,
         not nearest-neighbour), which is ~0 or ~1 away from the object
         boundary and close to 0.5 right on it.
     weighted: if True, applies the distance-weighted ablation from the
-        report — support pixels near the mask boundary (occupancy close to
+        report - support pixels near the mask boundary (occupancy close to
         0.5, i.e. low confidence) contribute less to the prototype.
     Returns fg/bg prototypes of shape (B, C).
     """
@@ -163,7 +163,7 @@ def compute_prototypes(support_feats, support_occupancy, weighted=False):
 def prototype_logits(query_feats, p_fg, p_bg):
     """Eq. (2): d(q, c) = -||f_theta(q) - p_c||^2, used directly as logits.
     query_feats: (B, C, h, w); p_fg/p_bg: (B, C).
-    Distances are scaled by 1/sqrt(C) — a standard prototypical-network
+    Distances are scaled by 1/sqrt(C) - a standard prototypical-network
     stabiliser (Snell et al., 2017) that keeps early-training logits from
     saturating the softmax when C is large, without changing what the
     method computes.
@@ -284,9 +284,9 @@ def main():
     print(f"mean loss, first 5 episodes:  {sum(losses[:5]) / min(5, len(losses)):.4f}")
     print(f"mean loss, last 5 episodes:   {sum(losses[-5:]) / min(5, len(losses)):.4f}")
     if losses[-1] < losses[0]:
-        print("Loss decreased over the pilot run — the training signal is real, not noise.")
+        print("Loss decreased over the pilot run - the training signal is real, not noise.")
     else:
-        print("Loss did NOT decrease — before scaling up, check the learning rate, "
+        print("Loss did NOT decrease - before scaling up, check the learning rate, "
               "the mask/label indexing, and that gradients are actually flowing.")
 
     mean_time = sum(times[1:]) / max(1, len(times) - 1)  # skip first (warm-up) step
@@ -300,12 +300,12 @@ def main():
         headroom = total_mb - peak_mb
         print(f"headroom: {headroom:.0f} MB")
         if headroom < 1000:
-            print("Less than ~1 GB headroom — drop --img-size, or add gradient "
+            print("Less than ~1 GB headroom - drop --img-size, or add gradient "
                   "accumulation, before running the full schedule.")
         else:
             print("Comfortable headroom at this image size and batch size.")
     else:
-        print("\nNo CUDA device found — this run only validated the pipeline logic, "
+        print("\nNo CUDA device found - this run only validated the pipeline logic, "
               "not GPU timing/VRAM. Re-run on the GTX 3070 for real numbers.")
 
 
