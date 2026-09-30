@@ -1,5 +1,5 @@
 """
-scripts/analyze.py — per-class error analysis and qualitative examples
+scripts/analyze.py - per-class error analysis and qualitative examples
 (Design Report Section IV: per-class error breakdown, qualitative mask
 comparison).
 
@@ -22,7 +22,7 @@ import torch
 from PIL import Image
 
 from src.dataset import FSS1000Episodic, fss_collate
-from src.models import build_backbone, SegHead, baseline_query_logits, adapt_baseline, prototype_loss
+from src.evaluate import load_model, predict, TTA_SEED_OFFSET
 from src.metrics import binary_mask_metrics
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -57,46 +57,22 @@ def save_qualitative(query_img, gt_mask, pred_mask, out_path):
     Image.fromarray(np.concatenate([base, gt_rgb, pred_rgb], axis=1)).save(out_path)
 
 
-def load_model(ckpt_path, method):
-    ckpt = torch.load(ckpt_path, map_location=DEVICE)
-    backbone = build_backbone().to(DEVICE)
-    backbone.load_state_dict(ckpt["backbone"])
-    backbone.eval()
-    head = None
-    if method == "baseline":
-        c_out = backbone.config.hidden_sizes[-1]
-        head = SegHead(c_out).to(DEVICE)
-        head.load_state_dict(ckpt["head"])
-        head.eval()
-    return backbone, head
-
-
-def predict(backbone, head, method, weighted, s_imgs, s_masks, q_img, q_mask):
-    """Same prediction logic as evaluate.py's run_eval, reused here."""
-    if method == "baseline":
-        with torch.enable_grad():
-            ab, ah = adapt_baseline(backbone, head, s_imgs, s_masks)
-        logits = baseline_query_logits(ab, ah, q_img)
-        del ab, ah
-    else:
-        with torch.no_grad():
-            _, logits = prototype_loss(backbone, s_imgs, s_masks, q_img, q_mask, weighted=weighted)
-    return logits
-
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--data-root", required=True)
     ap.add_argument("--splits-file", default="configs/class_splits.json")
     ap.add_argument("--checkpoint", required=True)
     ap.add_argument("--method", choices=["baseline", "prototype"], required=True)
-    ap.add_argument("--weighted", action="store_true")
+    ap.add_argument("--weighted", action="store_true", help="force weighted (normally read from checkpoint)")
+    ap.add_argument("--adapt-steps", type=int, default=5)
+    ap.add_argument("--adapt-lr", type=float, default=1e-4)
     ap.add_argument("--k-shot", type=int, default=5)
     ap.add_argument("--img-size", type=int, default=256)
     ap.add_argument("--episodes-per-class", type=int, default=3)
     ap.add_argument("--n-qualitative", type=int, default=8)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out-dir", default="analysis")
+    ap.add_argument("--max-classes", type=int, default=None, help="limit classes (smoke test only)")
     args = ap.parse_args()
 
     out_dir = Path(args.out_dir)
@@ -106,8 +82,16 @@ def main():
     with open(args.splits_file) as f:
         splits = json.load(f)
     test_classes = splits["test"]
+    if args.max_classes:
+        test_classes = test_classes[:args.max_classes]
 
-    backbone, head = load_model(args.checkpoint, args.method)
+    backbone, head, train_args = load_model(args.checkpoint, args.method)
+    weighted = bool(train_args.get("weighted", False)) or args.weighted
+    distance = train_args.get("distance", "euclidean")
+    # Same fixed RNG convention as src/evaluate.py (repeatable adaptation).
+    torch.manual_seed(TTA_SEED_OFFSET + args.seed)
+    pred = lambda s_i, s_m, q_i, q_m: predict(backbone, head, args.method, s_i, s_m, q_i, q_m,
+                                            weighted, distance, args.adapt_steps, args.adapt_lr)
 
     # ---- per-class breakdown ----
     # One class at a time so results/mIoU can be reported per class,
@@ -124,7 +108,7 @@ def main():
             s_imgs, s_masks, q_img, q_mask, _ = fss_collate([ds[j]])
             s_imgs, s_masks = s_imgs.to(DEVICE), s_masks.to(DEVICE)
             q_img, q_mask = q_img.to(DEVICE), q_mask.to(DEVICE)
-            logits = predict(backbone, head, args.method, args.weighted, s_imgs, s_masks, q_img, q_mask)
+            logits = pred(s_imgs, s_masks, q_img, q_mask)
             m = binary_mask_metrics(logits, q_mask)
             ious.append(m["mIoU"])
             f1s.append(m["F1"])
@@ -148,13 +132,18 @@ def main():
         args.data_root, test_classes, k_shot=args.k_shot, img_size=args.img_size,
         episodes_per_epoch=args.n_qualitative, augment=False, seed=args.seed + 9999,
     )
+    qual_log = []
     for i in range(len(qual_ds)):
         s_imgs, s_masks, q_img, q_mask, cls = fss_collate([qual_ds[i]])
         s_imgs, s_masks = s_imgs.to(DEVICE), s_masks.to(DEVICE)
         q_img, q_mask = q_img.to(DEVICE), q_mask.to(DEVICE)
-        logits = predict(backbone, head, args.method, args.weighted, s_imgs, s_masks, q_img, q_mask)
+        logits = pred(s_imgs, s_masks, q_img, q_mask)
         pred_mask = logits.argmax(dim=1)
-        save_qualitative(q_img, q_mask, pred_mask, qual_dir / f"{i:02d}_{cls[0]}.png")
+        score = binary_mask_metrics(logits, q_mask)["mIoU"]
+        qual_log.append({"index": i, "class": cls[0], "mIoU": score})
+        save_qualitative(q_img, q_mask, pred_mask, qual_dir / f"{i:02d}_{cls[0]}_miou{score:.2f}.png")
+    with open(out_dir / "qualitative_index.json", "w") as f:
+        json.dump(qual_log, f, indent=2)
 
     print(f"\nSaved per-class results and {args.n_qualitative} qualitative examples to {out_dir}")
 
