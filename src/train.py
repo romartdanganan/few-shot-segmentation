@@ -1,10 +1,15 @@
 """
-src/train.py — full training run for either method in Table I.
+src/train.py - full training run for either method in Table I.
+
+Every run writes <out-dir>/<run-name>/history.json with the full config,
+per-epoch training loss and validation scores, timing, peak GPU memory and
+parameter counts, so results never depend on copying terminal output.
 
 Usage:
-    python -m src.train --method baseline  --data-root data/FSS-1000 --img-size 256
-    python -m src.train --method prototype --data-root data/FSS-1000 --img-size 256
-    python -m src.train --method prototype --data-root data/FSS-1000 --weighted
+    python -m src.train --method baseline  --data-root data/fewshot_data
+    python -m src.train --method prototype --data-root data/fewshot_data
+    python -m src.train --method prototype --data-root data/fewshot_data --weighted
+    python -m src.train --method prototype --data-root data/fewshot_data --distance cosine
 """
 
 import argparse
@@ -29,6 +34,10 @@ from src.metrics import binary_mask_metrics, RunningStats
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+# Validation episodes use one fixed seed for every run, so validation scores
+# are comparable across training seeds and across tuning configurations.
+VAL_SEED = 1000
+
 
 def get_splits(data_root, splits_file, seed):
     splits_file = Path(splits_file)
@@ -50,15 +59,33 @@ def get_splits(data_root, splits_file, seed):
     return splits
 
 
+def default_run_name(args):
+    name = args.method
+    if args.weighted:
+        name += "_weighted"
+    if args.method == "prototype" and args.distance != "euclidean":
+        name += f"_{args.distance}"
+    return f"{name}_k{args.k_shot}_s{args.seed}"
+
+
+def count_params(modules):
+    total = sum(p.numel() for m in modules if m is not None for p in m.parameters())
+    trainable = sum(p.numel() for m in modules if m is not None for p in m.parameters() if p.requires_grad)
+    return total, trainable
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--data-root", required=True, help="path to the unzipped FSS-1000 folder")
     ap.add_argument("--splits-file", default="configs/class_splits.json")
     ap.add_argument("--method", choices=["baseline", "prototype"], required=True)
-    ap.add_argument("--weighted", action="store_true", help="prototype method: distance-weighted ablation")
+    ap.add_argument("--weighted", action="store_true", help="prototype method: boundary-weighted ablation")
+    ap.add_argument("--distance", choices=["euclidean", "cosine"], default="euclidean",
+                    help="prototype method: squared Euclidean / sqrt(C), or PANet cosine x 20")
     ap.add_argument("--img-size", type=int, default=256)
     ap.add_argument("--k-shot", type=int, default=5)
     ap.add_argument("--episodes-per-epoch", type=int, default=200)
+    ap.add_argument("--val-episodes", type=int, default=40)
     ap.add_argument("--epochs", type=int, default=10)
     ap.add_argument("--batch-size", type=int, default=1)
     ap.add_argument("--lr", type=float, default=1e-4)
@@ -66,11 +93,13 @@ def main():
     ap.add_argument("--amp", action="store_true", default=True)
     ap.add_argument("--no-amp", dest="amp", action="store_false")
     ap.add_argument("--out-dir", default="runs")
-    ap.add_argument("--adapt-steps",type=int,default=5,help="baseline: support-set fine-tuning steps during validation")
+    ap.add_argument("--run-name", default=None, help="folder name inside --out-dir (default: method_k_seed)")
+    ap.add_argument("--adapt-steps", type=int, default=5, help="baseline: support-set fine-tuning steps during validation")
+    ap.add_argument("--adapt-lr", type=float, default=1e-4, help="baseline: learning rate of those steps")
     args = ap.parse_args()
 
     torch.manual_seed(args.seed)
-    run_name = f"{args.method}{'_weighted' if args.weighted else ''}_k{args.k_shot}_s{args.seed}"
+    run_name = args.run_name or default_run_name(args)
     out_dir = Path(args.out_dir) / run_name
     out_dir.mkdir(parents=True, exist_ok=True)
     writer = SummaryWriter(log_dir=str(out_dir / "tb"))
@@ -83,7 +112,7 @@ def main():
     )
     val_ds = FSS1000Episodic(
         args.data_root, splits["val"], k_shot=args.k_shot, img_size=args.img_size,
-        episodes_per_epoch=40, augment=False, seed=args.seed + 1000,
+        episodes_per_epoch=args.val_episodes, augment=False, seed=VAL_SEED,
     )
     train_loader = DataLoader(train_ds, batch_size=args.batch_size, collate_fn=fss_collate, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=args.batch_size, collate_fn=fss_collate)
@@ -99,9 +128,26 @@ def main():
         c_out = backbone.config.hidden_sizes[-1]
         head = SegHead(c_out).to(DEVICE)
         params += list(head.parameters())
+    total_params, trainable_params = count_params([backbone, head])
 
     opt = torch.optim.AdamW(params, lr=args.lr)
     scaler = torch.amp.GradScaler("cuda", enabled=(args.amp and DEVICE.type == "cuda"))
+    if DEVICE.type == "cuda":
+        torch.cuda.reset_peak_memory_stats()
+
+    history = {
+        "run_name": run_name,
+        "config": vars(args),
+        "device": torch.cuda.get_device_name(0) if DEVICE.type == "cuda" else "cpu",
+        "total_params": total_params,
+        "trainable_params": trainable_params,
+        "epochs": [],
+        "complete": False,
+    }
+
+    def save_history():
+        with open(out_dir / "history.json", "w") as f:
+            json.dump(history, f, indent=2)
 
     best_val_miou = -1.0
     for epoch in range(args.epochs):
@@ -124,21 +170,12 @@ def main():
                 if args.method == "baseline":
                     # Standard supervised loss on the support set; query
                     # image isn't used to train the baseline.
-                    loss = baseline_loss(
-                        backbone,
-                        head,
-                        s_imgs,
-                        s_masks,
-                    )
+                    loss = baseline_loss(backbone, head, s_imgs, s_masks)
                 else:
                     # Full episode: support -> prototypes -> classify query.
                     loss, _ = prototype_loss(
-                        backbone,
-                        s_imgs,
-                        s_masks,
-                        q_img,
-                        q_mask,
-                        weighted=args.weighted,
+                        backbone, s_imgs, s_masks, q_img, q_mask,
+                        weighted=args.weighted, distance=args.distance,
                     )
 
             scaler.scale(loss).backward()
@@ -149,17 +186,28 @@ def main():
             global_step = epoch * len(train_loader) + step
             writer.add_scalar("train/loss", loss.item(), global_step)
 
-        mean_loss = epoch_loss / len(train_loader)
+        if DEVICE.type == "cuda":
+            torch.cuda.synchronize()
+        # Training time only (first to last training iteration of the epoch);
+        # validation below is excluded.
         dt = time.time() - t0
+        mean_loss = epoch_loss / len(train_loader)
         print(f"epoch {epoch+1}/{args.epochs}  mean_loss={mean_loss:.4f}  time={dt:.1f}s")
 
         # ---- validation ----
-        # Sampled from val-split classes the model never trained on — this
+        # Sampled from val-split classes the model never trained on - this
         # is what actually tests generalisation to a novel class.
         backbone.eval()
         if head is not None:
             head.eval()
         stats = RunningStats()
+        # Seed the RNG inside a forked scope, so the baseline's stochastic
+        # test-time adaptation (stochastic depth is active in train mode)
+        # is repeatable without disturbing the training RNG stream.
+        rng_scope = torch.random.fork_rng(
+            devices=[torch.cuda.current_device()] if DEVICE.type == "cuda" else [])
+        rng_scope.__enter__()
+        torch.manual_seed(VAL_SEED)
 
         for s_imgs, s_masks, q_img, q_mask, cls in val_loader:
             s_imgs, s_masks = s_imgs.to(DEVICE), s_masks.to(DEVICE)
@@ -169,55 +217,60 @@ def main():
                 # Baseline has no built-in way to use new examples, so it
                 # gets a few adaptation steps on the support set first.
                 adapted_backbone, adapted_head = adapt_baseline(
-                    backbone,
-                    head,
-                    s_imgs,
-                    s_masks,
-                    lr=args.lr,
-                    steps=args.adapt_steps,
+                    backbone, head, s_imgs, s_masks,
+                    lr=args.adapt_lr, steps=args.adapt_steps,
                 )
-
                 with torch.no_grad():
-                    logits = baseline_query_logits(
-                        adapted_backbone,
-                        adapted_head,
-                        q_img,
-                    )
-
+                    logits = baseline_query_logits(adapted_backbone, adapted_head, q_img)
                 # Discard so the next episode adapts from the clean model.
                 del adapted_backbone
                 del adapted_head
-
             else:
                 # No adaptation needed: prototype-building at inference
                 # time already is the method's way of using new examples.
                 with torch.no_grad():
                     _, logits = prototype_loss(
-                        backbone,
-                        s_imgs,
-                        s_masks,
-                        q_img,
-                        q_mask,
-                        weighted=args.weighted,
+                        backbone, s_imgs, s_masks, q_img, q_mask,
+                        weighted=args.weighted, distance=args.distance,
                     )
 
             stats.update(binary_mask_metrics(logits, q_mask))
 
+        rng_scope.__exit__(None, None, None)
         summary = stats.summary()
         val_miou = summary["mIoU"][0]
         print(f"  val: mIoU={val_miou:.4f}  F1={summary['F1'][0]:.4f}")
         writer.add_scalar("val/mIoU", val_miou, epoch)
         writer.add_scalar("val/F1", summary["F1"][0], epoch)
 
-        if val_miou > best_val_miou:
+        improved = val_miou > best_val_miou
+        if improved:
             best_val_miou = val_miou
-            ckpt = {"backbone": backbone.state_dict(), "args": vars(args)}
+            ckpt = {"backbone": backbone.state_dict(), "args": vars(args), "epoch": epoch + 1}
             if head is not None:
                 ckpt["head"] = head.state_dict()
             torch.save(ckpt, out_dir / "best.pt")
             print(f"  saved new best checkpoint (val mIoU={val_miou:.4f})")
 
-    print(f"\nDone. Best val mIoU: {best_val_miou:.4f}. Checkpoint + logs in {out_dir}")
+        history["epochs"].append({
+            "epoch": epoch + 1,
+            "train_loss": mean_loss,
+            "val_mIoU": val_miou,
+            "val_F1": summary["F1"][0],
+            "train_time_s": dt,
+            "saved_best": improved,
+        })
+        save_history()
+
+    history["best_val_mIoU"] = best_val_miou
+    history["best_epoch"] = max(history["epochs"], key=lambda e: e["val_mIoU"])["epoch"]
+    history["total_train_time_s"] = sum(e["train_time_s"] for e in history["epochs"])
+    history["peak_gpu_mem_MB"] = (torch.cuda.max_memory_allocated() / 2**20) if DEVICE.type == "cuda" else None
+    history["complete"] = True
+    save_history()
+    writer.close()
+    print(f"\nDone. Best val mIoU: {best_val_miou:.4f} (epoch {history['best_epoch']}). "
+          f"Checkpoint + logs in {out_dir}")
 
 
 if __name__ == "__main__":
