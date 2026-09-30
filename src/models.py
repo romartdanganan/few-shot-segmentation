@@ -1,8 +1,9 @@
 """
-src/models.py — shared backbone, baseline head, and prototype-based
+src/models.py - shared backbone, baseline head, and prototype-based
 episodic training logic (matches Design Report Table I / Eq. 1-2).
 """
 
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -18,6 +19,12 @@ ADE20K_CHECKPOINT = "nvidia/segformer-b0-finetuned-ade-512-512"
 def build_backbone(pretrained_name=ADE20K_CHECKPOINT):
     """Load SegFormer-B0 and return just its MiT encoder (drop the
     ADE20K-specific decoder head, which we don't want)."""
+    if os.environ.get("FSS_TINY_BACKBONE") == "1":
+        # Offline test hook only (used by the smoke test): a randomly
+        # initialised MiT-B0-shaped encoder, no download. Never set this
+        # for real experiments.
+        from transformers import SegformerConfig, SegformerModel
+        return SegformerModel(SegformerConfig())
     full_model = SegformerForSemanticSegmentation.from_pretrained(
         pretrained_name
     )
@@ -62,7 +69,7 @@ def baseline_loss(backbone, head, support_imgs, support_masks):
     Fine-tune the baseline directly on the k-shot support set
     using cross-entropy, as described in the design report.
     """
-    # Flatten (batch, k_shot, ...) into one batch of ordinary images —
+    # Flatten (batch, k_shot, ...) into one batch of ordinary images -
     # the baseline treats support images as standard supervised data.
     b, k, c, h, w = support_imgs.shape
 
@@ -90,7 +97,7 @@ def adapt_baseline(backbone,head,support_imgs,support_masks,lr=1e-4,steps=5):
     The original backbone/head are untouched so every novel episode
     starts from the same checkpoint.
     """
-    # Deepcopy so this adaptation doesn't affect the original model — the
+    # Deepcopy so this adaptation doesn't affect the original model - the
     # next (different) episode must start from the same clean checkpoint.
     adapted_backbone = copy.deepcopy(backbone)
     adapted_head = copy.deepcopy(head)
@@ -140,7 +147,7 @@ def compute_prototypes(support_feats, support_occupancy, weighted=False):
 
     if weighted:
         # Ablation: confidence is low near occ=0.5 (ambiguous boundary
-        # pixels), high near 0 or 1 — down-weights noisy boundary pixels.
+        # pixels), high near 0 or 1 - down-weights noisy boundary pixels.
         confidence = (2 * occ - 1).abs()
         fg_weight = fg_weight * confidence
         bg_weight = bg_weight * confidence
@@ -154,25 +161,38 @@ def compute_prototypes(support_feats, support_occupancy, weighted=False):
     return pool(fg_weight), pool(bg_weight)
 
 
-def prototype_logits(query_feats, p_fg, p_bg):
-    """Eq. (2): negative squared distance, scaled by 1/sqrt(C) for stability."""
+COSINE_SCALE = 20.0  # PANet's fixed multiplier alpha for cosine similarity
+
+
+def prototype_logits(query_feats, p_fg, p_bg, distance="euclidean"):
+    """Eq. (2): score each query location against both prototypes.
+
+    distance="euclidean": negative squared distance scaled by 1/sqrt(C)
+        (prototypical networks, Snell et al.).
+    distance="cosine": cosine similarity times 20 (PANet, Wang et al.).
+    """
+    if distance not in ("euclidean", "cosine"):
+        raise ValueError(f"unknown distance: {distance}")
     c = query_feats.shape[1]
     # Keeps distance magnitude stable regardless of channel count C.
     scale = c ** 0.5
 
-    def neg_sq_dist(feats, proto):
+    def score(feats, proto):
         proto = proto.view(proto.shape[0], proto.shape[1], 1, 1)
+        if distance == "cosine":
+            return COSINE_SCALE * F.cosine_similarity(feats, proto, dim=1, eps=1e-6).unsqueeze(1)
         # Less negative = closer to prototype = higher classification score.
         return -((feats - proto) ** 2).sum(dim=1, keepdim=True) / scale
 
-    d_fg = neg_sq_dist(query_feats, p_fg)
-    d_bg = neg_sq_dist(query_feats, p_bg)
+    d_fg = score(query_feats, p_fg)
+    d_bg = score(query_feats, p_bg)
     # Same (B, 2, H, W) shape as the baseline's logits, so downstream loss
     # and metric code is shared between both methods.
     return torch.cat([d_bg, d_fg], dim=1)
 
 
-def prototype_loss(backbone, support_imgs, support_masks, query_img, query_mask, weighted=False):
+def prototype_loss(backbone, support_imgs, support_masks, query_img, query_mask,
+                   weighted=False, distance="euclidean"):
     """Episodic loss (Table I, column B)."""
     b, k, c, h, w = support_imgs.shape
 
@@ -194,10 +214,10 @@ def prototype_loss(backbone, support_imgs, support_masks, query_img, query_mask,
     q_feats = extract_features(backbone, query_img)
 
     # 5. Classify query pixels by distance to each prototype, upsample.
-    logits = prototype_logits(q_feats, p_fg, p_bg)
+    logits = prototype_logits(q_feats, p_fg, p_bg, distance=distance)
     logits_full = F.interpolate(logits, size=(h, w), mode="bilinear", align_corners=False)
 
-    # 6. Loss vs. the real query mask — gradients flow back through 1-5
+    # 6. Loss vs. the real query mask - gradients flow back through 1-5
     # into the backbone, teaching it to produce features this trick works on.
     loss = F.cross_entropy(logits_full, query_mask.long())
     return loss, logits_full

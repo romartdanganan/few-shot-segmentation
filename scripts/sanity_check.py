@@ -1,7 +1,7 @@
 """
-scripts/sanity_check.py — logic correctness tests using synthetic data.
+scripts/sanity_check.py - logic correctness tests using synthetic data.
 
-No dataset, no GPU, no pretrained weights needed — this checks the core
+No dataset, no GPU, no pretrained weights needed - this checks the core
 math in src/models.py directly, using small hand-made tensors where the
 "correct" behaviour is known in advance. Run this any time you touch
 models.py to make sure nothing's silently broken.
@@ -112,7 +112,7 @@ def test_adapt_baseline_source_check():
     src = inspect.getsource(models.adapt_baseline)
     has_backbone_copy = "copy.deepcopy(backbone)" in src
     has_head_copy = "copy.deepcopy(head)" in src
-    print("  (source-level check only — this function needs the real "
+    print("  (source-level check only - this function needs the real "
           "SegFormer backbone to test live, which needs a GPU/download)")
     ok = True
     ok &= check("adapt_baseline deepcopies backbone before training on it", has_backbone_copy)
@@ -125,7 +125,7 @@ def test_episode_varies_by_epoch():
     Regression test for the frozen-episode bug: for a same idx across
     epochs, the episode should change. Checks several idx values and
     requires that NOT ALL of them collide between epoch 0 and epoch 1
-    — a single-idx version of this test can pass or fail by pure chance
+    - a single-idx version of this test can pass or fail by pure chance
     (few images means real collisions happen sometimes), so this checks
     enough idx values that an all-collide false failure is astronomically
     unlikely if the fix is actually working.
@@ -199,7 +199,7 @@ def test_class_split_disjoint_and_sized():
 
 
 def _make_dummy_class(class_dir, n):
-    """n distinctly-colored (image, mask) pairs — real overlap or shape
+    """n distinctly-colored (image, mask) pairs - real overlap or shape
     mistakes show up as exact tensor (mis)matches, not just look-alikes."""
     from PIL import Image
 
@@ -269,6 +269,26 @@ def test_fss_collate_shapes():
         return ok
 
 
+def test_cosine_distance_matches_panet_form():
+    """
+    distance="cosine" should give 20 * cos(query, prototype) (PANet), so a
+    query identical in direction to the foreground prototype scores 20 for
+    foreground, and an orthogonal background prototype scores 0.
+    """
+    b, c, h, w = 1, 2, 2, 2
+    q = torch.zeros(b, c, h, w)
+    q[:, 0] = 3.0                      # every query location points along [1, 0]
+    p_fg = torch.tensor([[1.0, 0.0]])
+    p_bg = torch.tensor([[0.0, 1.0]])
+    logits = prototype_logits(q, p_fg, p_bg, distance="cosine")
+    ok = True
+    ok &= check("cosine: foreground score = 20 for identical direction",
+                torch.allclose(logits[:, 1], torch.full((b, h, w), 20.0), atol=1e-4))
+    ok &= check("cosine: background score = 0 for orthogonal prototype",
+                torch.allclose(logits[:, 0], torch.zeros(b, h, w), atol=1e-4))
+    return ok
+
+
 if __name__ == "__main__":
     results = [
         test_prototype_separates_known_classes(),
@@ -279,5 +299,6 @@ if __name__ == "__main__":
         test_class_split_disjoint_and_sized(),
         test_support_query_never_overlap(),
         test_fss_collate_shapes(),
+        test_cosine_distance_matches_panet_form(),
     ]
     print(f"\n{sum(results)}/{len(results)} checks passed.")
