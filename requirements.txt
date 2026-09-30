@@ -2,6 +2,8 @@ transformers>=4.40
 tensorboard>=2.15
 Pillow>=10.0
 numpy>=1.24
+scipy>=1.10
+matplotlib>=3.7
 
 # torch and torchvision are not pinned here since the correct build
 # depends on your CUDA version. Install separately first, e.g.:
