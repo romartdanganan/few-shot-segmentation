@@ -1,0 +1,33 @@
+{
+  "split": "val",
+  "episodes_per_seed": 50,
+  "device": "NVIDIA GeForce RTX 3070",
+  "k5_prototype": {
+    "method": "prototype",
+    "checkpoint": "experiments\\train\\prototype_euclidean_lr0.0001_e20_s0\\best.pt",
+    "weighted": false,
+    "distance": "euclidean",
+    "adapt_steps": null,
+    "adapt_lr": null,
+    "mIoU_mean": 0.8179769438505172,
+    "mIoU_std": 0.009883381513072206,
+    "F1_mean": 0.8260886894663175,
+    "F1_std": 0.008742335243560793,
+    "per_seed_mIoU": [
+      0.825328688621521,
+      0.8245960086584091,
+      0.8040061342716217
+    ],
+    "per_seed_F1": [
+      0.8379183745384217,
+      0.8232861694693565,
+      0.8170615243911743
+    ],
+    "ms_per_episode": 22.277641334124684,
+    "seeds": [
+      0,
+      1,
+      2
+    ]
+  }
+}

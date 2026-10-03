@@ -1,0 +1,42 @@
+[
+  {
+    "index": 0,
+    "class": "coffee_mug",
+    "mIoU": 0.8779287934303284
+  },
+  {
+    "index": 1,
+    "class": "lynx",
+    "mIoU": 0.833733856678009
+  },
+  {
+    "index": 2,
+    "class": "briard",
+    "mIoU": 0.8983016014099121
+  },
+  {
+    "index": 3,
+    "class": "pokermon_ball",
+    "mIoU": 0.8656092286109924
+  },
+  {
+    "index": 4,
+    "class": "egg_tart",
+    "mIoU": 0.9385735988616943
+  },
+  {
+    "index": 5,
+    "class": "camomile",
+    "mIoU": 0.901153564453125
+  },
+  {
+    "index": 6,
+    "class": "birdhouse",
+    "mIoU": 0.8717811703681946
+  },
+  {
+    "index": 7,
+    "class": "sulphur_butterfly",
+    "mIoU": 0.9400243759155273
+  }
+]

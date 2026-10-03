@@ -1,0 +1,229 @@
+{
+  "tuning": {
+    "baseline": {
+      "learning_rate": {
+        "table": [
+          {
+            "value": 3e-05,
+            "val_mIoU": 0.8364056062698364,
+            "val_mIoU_std": 0.004575306458476354,
+            "val_F1": 0.8398302629590034,
+            "run": "baseline_tta5-0.0001_lr3e-05_e10_s0"
+          },
+          {
+            "value": 0.0001,
+            "val_mIoU": 0.8460189354419708,
+            "val_mIoU_std": 0.0028873763900520585,
+            "val_F1": 0.8523122274875641,
+            "run": "baseline_tta5-0.0001_lr0.0001_e10_s0"
+          },
+          {
+            "value": 0.0003,
+            "val_mIoU": 0.8178642497460047,
+            "val_mIoU_std": 0.002480596190964521,
+            "val_F1": 0.8192116186022759,
+            "run": "baseline_tta5-0.0001_lr0.0003_e10_s0"
+          }
+        ],
+        "chosen": 0.0001
+      },
+      "epochs": {
+        "table": [
+          {
+            "value": 10,
+            "val_mIoU": 0.8460189354419708,
+            "val_mIoU_std": 0.0028873763900520585,
+            "val_F1": 0.8523122274875641,
+            "run": "baseline_tta5-0.0001_lr0.0001_e10_s0"
+          },
+          {
+            "value": 20,
+            "val_mIoU": 0.8441800244649251,
+            "val_mIoU_std": 0.0038054119439951207,
+            "val_F1": 0.8503190837303797,
+            "run": "baseline_tta5-0.0001_lr0.0001_e20_s0"
+          }
+        ],
+        "chosen": 10
+      },
+      "tta_steps": {
+        "table": [
+          {
+            "value": 0,
+            "val_mIoU": 0.8122340160608291,
+            "val_mIoU_std": 0.011292988845818868,
+            "val_F1": 0.8145267868290345,
+            "run": "baseline_tta5-0.0001_lr0.0001_e10_s0"
+          },
+          {
+            "value": 1,
+            "val_mIoU": 0.8197846128543218,
+            "val_mIoU_std": 0.0072297880539274745,
+            "val_F1": 0.8126142069200675,
+            "run": "baseline_tta5-0.0001_lr0.0001_e10_s0"
+          },
+          {
+            "value": 5,
+            "val_mIoU": 0.8460160815715789,
+            "val_mIoU_std": 0.002887718228641795,
+            "val_F1": 0.8523081777493159,
+            "run": "baseline_tta5-0.0001_lr0.0001_e10_s0"
+          },
+          {
+            "value": 10,
+            "val_mIoU": 0.8505316630999248,
+            "val_mIoU_std": 0.002889987336751151,
+            "val_F1": 0.8587366360425949,
+            "run": "baseline_tta5-0.0001_lr0.0001_e10_s0"
+          }
+        ],
+        "chosen": 10
+      },
+      "tta_lr": {
+        "table": [
+          {
+            "value": 3e-05,
+            "val_mIoU": 0.8412367341915766,
+            "val_mIoU_std": 0.004813918906798795,
+            "val_F1": 0.8450920790433883,
+            "run": "baseline_tta5-0.0001_lr0.0001_e10_s0"
+          },
+          {
+            "value": 0.0001,
+            "val_mIoU": 0.8505316630999248,
+            "val_mIoU_std": 0.002889987336751151,
+            "val_F1": 0.8587366360425949,
+            "run": "baseline_tta5-0.0001_lr0.0001_e10_s0"
+          },
+          {
+            "value": 0.0003,
+            "val_mIoU": 0.8394667315483093,
+            "val_mIoU_std": 0.003721023148630818,
+            "val_F1": 0.8466997989018757,
+            "run": "baseline_tta5-0.0001_lr0.0001_e10_s0"
+          }
+        ],
+        "chosen": 0.0001
+      }
+    },
+    "prototype": {
+      "learning_rate": {
+        "table": [
+          {
+            "value": 3e-05,
+            "val_mIoU": 0.7982384554545084,
+            "val_mIoU_std": 0.004500438447782147,
+            "val_F1": 0.8058919428785641,
+            "run": "prototype_euclidean_lr3e-05_e10_s0"
+          },
+          {
+            "value": 0.0001,
+            "val_mIoU": 0.8176144417126974,
+            "val_mIoU_std": 0.006969256053570473,
+            "val_F1": 0.8267098281780878,
+            "run": "prototype_euclidean_lr0.0001_e10_s0"
+          },
+          {
+            "value": 0.0003,
+            "val_mIoU": 0.758131747841835,
+            "val_mIoU_std": 0.015754396927637908,
+            "val_F1": 0.7627698927124341,
+            "run": "prototype_euclidean_lr0.0003_e10_s0"
+          }
+        ],
+        "chosen": 0.0001
+      },
+      "epochs": {
+        "table": [
+          {
+            "value": 10,
+            "val_mIoU": 0.8176144417126974,
+            "val_mIoU_std": 0.006969256053570473,
+            "val_F1": 0.8267098281780878,
+            "run": "prototype_euclidean_lr0.0001_e10_s0"
+          },
+          {
+            "value": 20,
+            "val_mIoU": 0.8179769438505172,
+            "val_mIoU_std": 0.009883381513072206,
+            "val_F1": 0.8260886894663175,
+            "run": "prototype_euclidean_lr0.0001_e20_s0"
+          }
+        ],
+        "chosen": 20
+      },
+      "distance": {
+        "table": [
+          {
+            "value": "euclidean",
+            "val_mIoU": 0.8179769438505172,
+            "val_mIoU_std": 0.009883381513072206,
+            "val_F1": 0.8260886894663175,
+            "run": "prototype_euclidean_lr0.0001_e20_s0"
+          },
+          {
+            "value": "cosine",
+            "val_mIoU": 0.8171435525019963,
+            "val_mIoU_std": 0.0014443773896275578,
+            "val_F1": 0.8218944775561492,
+            "run": "prototype_cosine_lr0.0001_e20_s0"
+          }
+        ],
+        "chosen": "euclidean"
+      }
+    }
+  },
+  "chosen": {
+    "baseline": {
+      "lr": 0.0001,
+      "epochs": 10,
+      "tta": [
+        10,
+        0.0001
+      ]
+    },
+    "prototype": {
+      "lr": 0.0001,
+      "epochs": 20,
+      "distance": "euclidean"
+    }
+  },
+  "final_runs": {
+    "baseline": [
+      "experiments\\train\\baseline_tta10-0.0001_lr0.0001_e10_s0",
+      "experiments\\train\\baseline_tta10-0.0001_lr0.0001_e10_s1",
+      "experiments\\train\\baseline_tta10-0.0001_lr0.0001_e10_s2",
+      "experiments\\train\\baseline_tta10-0.0001_lr0.0001_e10_s3",
+      "experiments\\train\\baseline_tta10-0.0001_lr0.0001_e10_s4",
+      "experiments\\train\\baseline_tta10-0.0001_lr0.0001_e10_s5",
+      "experiments\\train\\baseline_tta10-0.0001_lr0.0001_e10_s6",
+      "experiments\\train\\baseline_tta10-0.0001_lr0.0001_e10_s7",
+      "experiments\\train\\baseline_tta10-0.0001_lr0.0001_e10_s8",
+      "experiments\\train\\baseline_tta10-0.0001_lr0.0001_e10_s9"
+    ],
+    "prototype": [
+      "experiments\\train\\prototype_euclidean_lr0.0001_e20_s0",
+      "experiments\\train\\prototype_euclidean_lr0.0001_e20_s1",
+      "experiments\\train\\prototype_euclidean_lr0.0001_e20_s2",
+      "experiments\\train\\prototype_euclidean_lr0.0001_e20_s3",
+      "experiments\\train\\prototype_euclidean_lr0.0001_e20_s4",
+      "experiments\\train\\prototype_euclidean_lr0.0001_e20_s5",
+      "experiments\\train\\prototype_euclidean_lr0.0001_e20_s6",
+      "experiments\\train\\prototype_euclidean_lr0.0001_e20_s7",
+      "experiments\\train\\prototype_euclidean_lr0.0001_e20_s8",
+      "experiments\\train\\prototype_euclidean_lr0.0001_e20_s9"
+    ],
+    "prototype_weighted": [
+      "experiments\\train\\prototype_weighted_euclidean_lr0.0001_e20_s0",
+      "experiments\\train\\prototype_weighted_euclidean_lr0.0001_e20_s1",
+      "experiments\\train\\prototype_weighted_euclidean_lr0.0001_e20_s2",
+      "experiments\\train\\prototype_weighted_euclidean_lr0.0001_e20_s3",
+      "experiments\\train\\prototype_weighted_euclidean_lr0.0001_e20_s4",
+      "experiments\\train\\prototype_weighted_euclidean_lr0.0001_e20_s5",
+      "experiments\\train\\prototype_weighted_euclidean_lr0.0001_e20_s6",
+      "experiments\\train\\prototype_weighted_euclidean_lr0.0001_e20_s7",
+      "experiments\\train\\prototype_weighted_euclidean_lr0.0001_e20_s8",
+      "experiments\\train\\prototype_weighted_euclidean_lr0.0001_e20_s9"
+    ]
+  }
+}
