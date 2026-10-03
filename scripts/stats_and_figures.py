@@ -40,10 +40,13 @@ plt.rcParams.update({"font.family": "serif",
 
 # Fixed colour per condition (never reassigned); marker + dash give a second encoding.
 STYLE = {
-    "baseline":           {"label": "Fine-tune",        "color": "#2a78d6", "marker": "o"},
-    "prototype":          {"label": "Proto",            "color": "#eb6834", "marker": "s"},
-    "prototype_weighted": {"label": "Proto-BW",         "color": "#1baf7a", "marker": "^"},
-    "baseline_noTTA":     {"label": "Fine-tune, no TTA", "short": "No-TTA", "color": "#eda100", "marker": "D"},
+    # Colours differ in brightness and every line has its own dash and marker,
+    # so the figures still read correctly when printed in black and white.
+    "baseline":           {"label": "Fine-tune", "color": "#1f3f77", "marker": "o", "ls": "-", "mfc": None},
+    "prototype":          {"label": "Proto", "color": "#e07b28", "marker": "s", "ls": "--", "mfc": None},
+    "prototype_weighted": {"label": "Proto-BW", "color": "#2e8b57", "marker": "^", "ls": ":", "mfc": "white"},
+    "baseline_noTTA":     {"label": "Fine-tune, no TTA", "short": "No-TTA", "color": "#d4a017", "marker": "D",
+                           "ls": "-.", "mfc": None},
 }
 
 # Planned comparisons (A - B). Each metric is its own Holm family.
@@ -192,10 +195,10 @@ def main():
         arr = np.array([c[:n] for c in curves])
         x = np.arange(1, n + 1)
         st = STYLE[cond]
-        ax.plot(x, arr.mean(0), marker=st["marker"], ms=3, lw=1, color=st["color"],
-                label=f"{st['label']} (n={len(curves)})")
+        ax.plot(x, arr.mean(0), marker=st["marker"], ms=3.5, lw=1.2, ls=st["ls"], color=st["color"],
+                mfc=st["mfc"] or st["color"], mec=st["color"], label=f"{st['label']} (n={len(curves)})")
         if len(curves) > 1:
-            ax.fill_between(x, arr.min(0), arr.max(0), color=st["color"], alpha=0.15, lw=0)
+            ax.fill_between(x, arr.min(0), arr.max(0), color=st["color"], alpha=0.10, lw=0)
     ax.set_xlabel("Epoch")
     ax.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
     ax.set_ylabel("Validation mIoU")
@@ -208,19 +211,20 @@ def main():
     # ---------------- figure: per-training-seed test mIoU
     order = [("k1", "baseline"), ("k1", "prototype"), ("k5", "baseline_noTTA"), ("k5", "baseline"),
              ("k5", "prototype"), ("k5", "prototype_weighted")]
-    data, labels, colors = [], [], []
+    data, labels, styles = [], [], []
     for k, cond in order:
         rs = final.get(f"{k}_{cond}")
         if rs:
             data.append([r["mIoU"] for r in rs])
             labels.append(f"{STYLE[cond].get('short', STYLE[cond]['label'])}\n{k[1:]}-shot")
-            colors.append(STYLE[cond]["color"])
+            styles.append(STYLE[cond])
     if data:
         fig, ax = plt.subplots(figsize=(3.4, 2.2), dpi=300)
-        ax.boxplot(data, tick_labels=labels, widths=0.5, medianprops=dict(color="black", lw=1.2))
-        for i, (vals, c) in enumerate(zip(data, colors), start=1):
+        ax.boxplot(data, tick_labels=labels, widths=0.5, showfliers=False, medianprops=dict(color="black", lw=1.2))
+        for i, (vals, st) in enumerate(zip(data, styles), start=1):
             jitter = np.linspace(-0.12, 0.12, len(vals)) if len(vals) > 1 else [0]
-            ax.scatter(np.full(len(vals), i) + jitter, vals, s=8, color=c, zorder=3, edgecolors="white", linewidths=0.4)
+            ax.scatter(np.full(len(vals), i) + jitter, vals, s=9, marker=st["marker"], zorder=3,
+                       facecolors=st["mfc"] or st["color"], edgecolors=st["color"], linewidths=0.6)
         ax.set_ylabel("Test mIoU per training seed")
         ax.tick_params(axis="x", labelsize=6)
         ax.grid(axis="y", alpha=0.3)
