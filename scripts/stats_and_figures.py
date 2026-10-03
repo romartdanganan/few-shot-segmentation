@@ -11,6 +11,7 @@ Outputs (in <root>/report/):
     tuning_tables.md    parameter-tuning results on the validation classes
     final_table.md      test mIoU / F1, mean +/- std over training seeds
     stats.md, stats.json paired t-test + Wilcoxon, Holm-corrected, effect sizes
+    friedman.json        Friedman omnibus test over the three methods
     cost_table.md       training time, best epoch, memory, parameters, ms/episode
     fig_val.png         validation curves (mean over training seeds, band = min-max)
     fig_box.png         per-training-seed test mIoU
@@ -71,6 +72,24 @@ def holm(pvals):
         running = max(running, min(1.0, (m - rank) * pvals[i]))
         adj[i] = running
     return adj
+
+
+FRIEDMAN_GROUP = ["baseline", "prototype", "prototype_weighted"]
+
+
+def friedman_tests(final, metric):
+    """Omnibus Friedman test over the three methods, matched by training seed,
+    before the planned pairwise comparisons."""
+    rows = []
+    for k in ("k1", "k5"):
+        per = [{r["train_seed"]: r[metric] for r in final.get(f"{k}_{c}", [])} for c in FRIEDMAN_GROUP]
+        seeds = sorted(set.intersection(*(set(d) for d in per))) if all(per) else []
+        if len(seeds) < 3:
+            continue
+        res = stats.friedmanchisquare(*[[d[s] for s in seeds] for d in per])
+        rows.append({"k": k, "metric": metric, "methods": FRIEDMAN_GROUP, "n": len(seeds),
+                     "chi2": float(res.statistic), "p": float(res.pvalue)})
+    return rows
 
 
 def paired_tests(final, metric):
@@ -147,6 +166,8 @@ def main():
     # ---------------- statistics
     all_rows = paired_tests(final, "mIoU") + paired_tests(final, "F1")
     (out / "stats.json").write_text(json.dumps(all_rows, indent=2))
+    fried = friedman_tests(final, "mIoU") + friedman_tests(final, "F1")
+    (out / "friedman.json").write_text(json.dumps(fried, indent=2))
     lines = ["# Paired tests across training seeds (A minus B)", "",
              "Paired t-test (primary) and Wilcoxon signed-rank (check, uncorrected); "
              "Holm correction within each metric's family of comparisons; alpha = 0.05; "

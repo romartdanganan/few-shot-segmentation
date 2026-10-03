@@ -1,0 +1,50 @@
+[
+  {
+    "k": "k1",
+    "metric": "mIoU",
+    "methods": [
+      "baseline",
+      "prototype",
+      "prototype_weighted"
+    ],
+    "n": 10,
+    "chi2": 16.80000000000001,
+    "p": 0.00022486732417884692
+  },
+  {
+    "k": "k5",
+    "metric": "mIoU",
+    "methods": [
+      "baseline",
+      "prototype",
+      "prototype_weighted"
+    ],
+    "n": 10,
+    "chi2": 18.200000000000017,
+    "p": 0.0001116658084901137
+  },
+  {
+    "k": "k1",
+    "metric": "F1",
+    "methods": [
+      "baseline",
+      "prototype",
+      "prototype_weighted"
+    ],
+    "n": 10,
+    "chi2": 15.800000000000011,
+    "p": 0.00037074354045908616
+  },
+  {
+    "k": "k5",
+    "metric": "F1",
+    "methods": [
+      "baseline",
+      "prototype",
+      "prototype_weighted"
+    ],
+    "n": 10,
+    "chi2": 16.80000000000001,
+    "p": 0.00022486732417884692
+  }
+]
