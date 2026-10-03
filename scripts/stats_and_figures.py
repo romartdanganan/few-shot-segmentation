@@ -182,7 +182,8 @@ def main():
     for cond, dirs in state.get("final_runs", {}).items():
         curves = []
         for d in dirs:
-            h = Path(d) / "history.json"
+            # Paths are stored as written on the machine that ran them (may use "\\").
+            h = Path(str(d).replace("\\", "/")) / "history.json"
             if h.exists():
                 curves.append([e["val_mIoU"] for e in json.loads(h.read_text())["epochs"]])
         if not curves:
