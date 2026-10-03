@@ -25,6 +25,19 @@ from the training objective:
 | New class at test time | copy the model, a few gradient steps on the support set, predict the query | build prototypes from the support set, one forward pass |
 | Ablation | | Proto-BW: prototypes down-weight ambiguous mask-boundary locations by \|2m - 1\| |
 
+## Project status
+
+- [x] Feasibility pilot (`scripts/pilot_test.py`): pipeline runs and fits easily in 8 GB of VRAM (RTX 3070)
+- [x] Data pipeline with class-level train/val/test splits (no class in more than one role)
+- [x] Fine-tune, Proto and Proto-BW training, plus the evaluation protocol (k=1/k=5, several seeds)
+- [x] Two silent bugs fixed (prototype reshape, frozen training episodes), covered by `scripts/sanity_check.py` (9 tests)
+- [x] Seed-0 models retrained after both fixes; per-class and qualitative analysis re-run (`analysis/`)
+- [x] Full protocol pipeline (`scripts/run_experiments.py`) and stats/figures script, smoke-tested
+- [x] Full protocol run: tuning on validation classes, 10 training seeds, test evaluation (`experiments/`)
+- [x] Tables, statistical tests and figures from the full run (`experiments/report/`)
+- [x] Final report updated with the full-run results
+- [ ] Final presentation updated with the full-run results
+
 ## Repository structure
 
 ```
