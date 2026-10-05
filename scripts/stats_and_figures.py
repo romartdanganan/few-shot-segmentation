@@ -243,8 +243,8 @@ def main():
         fig, ax = plt.subplots(figsize=(3.4, 2.2), dpi=300)
         ax.boxplot(data, tick_labels=labels, widths=0.5, showfliers=False, medianprops=dict(color="black", lw=1.2))
         for i, (vals, st) in enumerate(zip(data, styles), start=1):
-            jitter = np.linspace(-0.12, 0.12, len(vals)) if len(vals) > 1 else [0]
-            ax.scatter(np.full(len(vals), i) + jitter, vals, s=9, marker=st["marker"], zorder=3,
+            jitter = np.linspace(-0.22, 0.22, len(vals)) if len(vals) > 1 else [0]
+            ax.scatter(np.full(len(vals), i) + jitter, vals, s=6, marker=st["marker"], zorder=3,
                        facecolors=st["mfc"] or st["color"], edgecolors=st["color"], linewidths=0.6)
         ax.set_ylabel("Test mIoU per training seed")
         ax.tick_params(axis="x", labelsize=6)
