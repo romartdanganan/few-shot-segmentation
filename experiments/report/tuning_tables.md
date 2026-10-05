@@ -4,7 +4,7 @@ Selection metric: mean validation mIoU over 3 evaluation seeds x 50 episodes.
 
 ## baseline: learning_rate (chosen: 0.0001)
 
-| value | val mIoU | ± std | val F1 |
+| value | val mIoU | Â± std | val F1 |
 |---|---|---|---|
 | 3e-05 | 0.8364 | 0.0046 | 0.8398 |
 | 0.0001 | 0.8460 | 0.0029 | 0.8523 |
@@ -12,14 +12,14 @@ Selection metric: mean validation mIoU over 3 evaluation seeds x 50 episodes.
 
 ## baseline: epochs (chosen: 10)
 
-| value | val mIoU | ± std | val F1 |
+| value | val mIoU | Â± std | val F1 |
 |---|---|---|---|
 | 10 | 0.8460 | 0.0029 | 0.8523 |
 | 20 | 0.8442 | 0.0038 | 0.8503 |
 
 ## baseline: tta_steps (chosen: 10)
 
-| value | val mIoU | ± std | val F1 |
+| value | val mIoU | Â± std | val F1 |
 |---|---|---|---|
 | 0 | 0.8122 | 0.0113 | 0.8145 |
 | 1 | 0.8198 | 0.0072 | 0.8126 |
@@ -28,7 +28,7 @@ Selection metric: mean validation mIoU over 3 evaluation seeds x 50 episodes.
 
 ## baseline: tta_lr (chosen: 0.0001)
 
-| value | val mIoU | ± std | val F1 |
+| value | val mIoU | Â± std | val F1 |
 |---|---|---|---|
 | 3e-05 | 0.8412 | 0.0048 | 0.8451 |
 | 0.0001 | 0.8505 | 0.0029 | 0.8587 |
@@ -36,7 +36,7 @@ Selection metric: mean validation mIoU over 3 evaluation seeds x 50 episodes.
 
 ## prototype: learning_rate (chosen: 0.0001)
 
-| value | val mIoU | ± std | val F1 |
+| value | val mIoU | Â± std | val F1 |
 |---|---|---|---|
 | 3e-05 | 0.7982 | 0.0045 | 0.8059 |
 | 0.0001 | 0.8176 | 0.0070 | 0.8267 |
@@ -44,14 +44,14 @@ Selection metric: mean validation mIoU over 3 evaluation seeds x 50 episodes.
 
 ## prototype: epochs (chosen: 20)
 
-| value | val mIoU | ± std | val F1 |
+| value | val mIoU | Â± std | val F1 |
 |---|---|---|---|
 | 10 | 0.8176 | 0.0070 | 0.8267 |
 | 20 | 0.8180 | 0.0099 | 0.8261 |
 
 ## prototype: distance (chosen: euclidean)
 
-| value | val mIoU | ± std | val F1 |
+| value | val mIoU | Â± std | val F1 |
 |---|---|---|---|
 | euclidean | 0.8180 | 0.0099 | 0.8261 |
 | cosine | 0.8171 | 0.0014 | 0.8219 |

@@ -143,7 +143,7 @@ def main():
                 lines.append(f"| {r['value']} | {r['val_mIoU']:.4f} | {r['val_mIoU_std']:.4f} | {r['val_F1']:.4f} |")
             lines.append("")
     lines += ["Chosen settings: `" + json.dumps(summary.get("chosen")) + "`"]
-    (out / "tuning_tables.md").write_text("\n".join(lines))
+    (out / "tuning_tables.md").write_text("\n".join(lines), encoding="utf-8")
 
     # ---------------- final test table
     final = summary["final"]
@@ -161,13 +161,13 @@ def main():
                      f"{fmt(statistics.mean(mi), sd(mi))} | {fmt(statistics.mean(f1), sd(f1))} | "
                      f"{statistics.mean(r['eval_seed_mIoU_std'] for r in rs):.3f} |")
     lines += ["", "std = sample standard deviation across training seeds (ddof=1)."]
-    (out / "final_table.md").write_text("\n".join(lines))
+    (out / "final_table.md").write_text("\n".join(lines), encoding="utf-8")
 
     # ---------------- statistics
     all_rows = paired_tests(final, "mIoU") + paired_tests(final, "F1")
-    (out / "stats.json").write_text(json.dumps(all_rows, indent=2))
+    (out / "stats.json").write_text(json.dumps(all_rows, indent=2), encoding="utf-8")
     fried = friedman_tests(final, "mIoU") + friedman_tests(final, "F1")
-    (out / "friedman.json").write_text(json.dumps(fried, indent=2))
+    (out / "friedman.json").write_text(json.dumps(fried, indent=2), encoding="utf-8")
     lines = ["# Paired tests across training seeds (A minus B)", "",
              "Paired t-test (primary) and Wilcoxon signed-rank (check, uncorrected); "
              "Holm correction within each metric's family of comparisons; alpha = 0.05; "
@@ -178,7 +178,7 @@ def main():
         lines.append(f"| {r['metric']} | {r['k'][1:]} | {STYLE[r['A']]['label']} | {STYLE[r['B']]['label']} | {r['n']} | "
                      f"{r['mean_diff_A_minus_B']:+.4f} | {r['t']:.2f} | {r['p_t']:.3g} | {r['p_holm']:.3g} | "
                      f"{r['p_wilcoxon_uncorrected']:.3g} | {r['cohen_dz']:+.2f} |")
-    (out / "stats.md").write_text("\n".join(lines))
+    (out / "stats.md").write_text("\n".join(lines), encoding="utf-8")
 
     # ---------------- cost table
     lines = ["# Computational cost", "",
@@ -199,7 +199,7 @@ def main():
                      f"{statistics.mean(r['ms_per_episode'] for r in final['k1_baseline_noTTA']):.0f} | "
                      f"{statistics.mean(r['ms_per_episode'] for r in nt):.0f} |")
     lines += ["", f"Hardware: {next(iter(summary.get('cost', {}).values()), {}).get('device')}"]
-    (out / "cost_table.md").write_text("\n".join(lines))
+    (out / "cost_table.md").write_text("\n".join(lines), encoding="utf-8")
 
     # ---------------- figure: validation curves (final configs, all training seeds)
     fig, ax = plt.subplots(figsize=(3.4, 2.3), dpi=300)
@@ -255,7 +255,7 @@ def main():
 
     print(f"Wrote tables, stats and figures to {out}")
     for f in ["tuning_tables.md", "final_table.md", "stats.md", "cost_table.md"]:
-        print("\n" + (out / f).read_text())
+        print("\n" + (out / f).read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
