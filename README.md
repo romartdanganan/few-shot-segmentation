@@ -31,7 +31,7 @@ from the training objective:
 - [x] Data pipeline with class-level train/val/test splits (no class in more than one role)
 - [x] Fine-tune, Proto and Proto-BW training, plus the evaluation protocol (k=1/k=5, several seeds)
 - [x] Two silent bugs fixed (prototype reshape, frozen training episodes), covered by `scripts/sanity_check.py` (9 tests)
-- [x] Seed-0 models retrained after both fixes; per-class and qualitative analysis re-run (`analysis/`)
+- [x] Seed-0 models retrained after both fixes; early single-seed analysis kept in `analysis/` and `results/`
 - [x] Full protocol pipeline (`scripts/run_experiments.py`) and stats/figures script, smoke-tested
 - [x] Full protocol run: tuning on validation classes, 30 training seeds, test evaluation (`experiments/`)
 - [x] Tables, statistical tests and figures from the full run (`experiments/report/`)
@@ -57,6 +57,7 @@ from the training objective:
 │   └── pilot_test.py       # original feasibility pilot (synthetic data, memory check)
 ├── configs/class_splits.json   # the fixed 700/100/200 class split (seed 0)
 ├── experiments/        # JSON logs of every run behind the final report (checkpoints not committed)
+├── results/, analysis/, runs/  # earlier single-seed runs and their TensorBoard logs, kept for reference
 └── requirements.txt
 ```
 
@@ -74,7 +75,9 @@ python -m scripts.sanity_check   # should print "9/9 checks passed"
 
 Download [FSS-1000](https://github.com/HKUSTCV/FSS-1000) (also on
 [Kaggle](https://www.kaggle.com/datasets/meowmeowmeowmeowmeow/fss1000-a-1000-class-fewshot-segmentation)).
-It has 1000 classes with 10 image/mask pairs each (224x224). It is not included in this repository.
+It has 1000 classes with 10 image/mask pairs each (224x224). It is not included in this repository: its
+images were collected from web image searches and no licence is stated, so use it for research only and
+cite the FSS-1000 paper.
 Unzip it so each class is a folder of numbered pairs:
 
 ```
@@ -136,7 +139,7 @@ Individual scripts can also be run directly, e.g.:
 
 ```bash
 python -m src.train --method prototype --data-root data/fewshot_data --lr 1e-4 --epochs 10 --seed 0
-python -m src.evaluate --data-root data/fewshot_data --split val --prototype-ckpt runs/prototype_k5_s0/best.pt --shots 5 --seeds 0 1 2
+python -m src.evaluate --data-root data/fewshot_data --split val --prototype-ckpt experiments/train/prototype_euclidean_lr0.0001_e20_s0/best.pt --shots 5 --seeds 0 1 2
 tensorboard --logdir experiments/train
 ```
 
