@@ -1,0 +1,91 @@
+{
+  "excluded_test_classes": [
+    [
+      "earphone1",
+      [
+        "earphone2"
+      ]
+    ],
+    [
+      "pencil_sharpener2",
+      [
+        "pencil_sharpener1"
+      ]
+    ]
+  ],
+  "n_training_seeds": 10,
+  "results": [
+    {
+      "condition": "k1_baseline",
+      "metric": "F1",
+      "all_classes": 0.7984547719512367,
+      "without": 0.7982739419798541,
+      "change": -0.00018082997138257895,
+      "episodes_removed_per_model": 6,
+      "episodes_per_model": 500
+    },
+    {
+      "condition": "k1_baseline",
+      "metric": "mIoU",
+      "all_classes": 0.8075492645919323,
+      "without": 0.8072749923309908,
+      "change": -0.000274272260941566,
+      "episodes_removed_per_model": 6,
+      "episodes_per_model": 500
+    },
+    {
+      "condition": "k1_prototype",
+      "metric": "F1",
+      "all_classes": 0.7397194630182173,
+      "without": 0.7384632810283254,
+      "change": -0.001256181989891969,
+      "episodes_removed_per_model": 6,
+      "episodes_per_model": 500
+    },
+    {
+      "condition": "k1_prototype",
+      "metric": "mIoU",
+      "all_classes": 0.7664803698450326,
+      "without": 0.7657175553738361,
+      "change": -0.0007628144711965268,
+      "episodes_removed_per_model": 6,
+      "episodes_per_model": 500
+    },
+    {
+      "condition": "k5_baseline",
+      "metric": "F1",
+      "all_classes": 0.8242823187710717,
+      "without": 0.8244574025326062,
+      "change": 0.00017508376153452243,
+      "episodes_removed_per_model": 6,
+      "episodes_per_model": 500
+    },
+    {
+      "condition": "k5_baseline",
+      "metric": "mIoU",
+      "all_classes": 0.8300049419671297,
+      "without": 0.8304391987288308,
+      "change": 0.0004342567617010573,
+      "episodes_removed_per_model": 6,
+      "episodes_per_model": 500
+    },
+    {
+      "condition": "k5_prototype",
+      "metric": "F1",
+      "all_classes": 0.8104431606316007,
+      "without": 0.8108048378446536,
+      "change": 0.00036167721305291334,
+      "episodes_removed_per_model": 6,
+      "episodes_per_model": 500
+    },
+    {
+      "condition": "k5_prototype",
+      "metric": "mIoU",
+      "all_classes": 0.8127409161001444,
+      "without": 0.8133054595645011,
+      "change": 0.0005645434643566372,
+      "episodes_removed_per_model": 6,
+      "episodes_per_model": 500
+    }
+  ]
+}
