@@ -33,7 +33,7 @@ from the training objective:
 - [x] Two silent bugs fixed (prototype reshape, frozen training episodes), covered by `scripts/sanity_check.py` (9 tests)
 - [x] Seed-0 models retrained after both fixes; per-class and qualitative analysis re-run (`analysis/`)
 - [x] Full protocol pipeline (`scripts/run_experiments.py`) and stats/figures script, smoke-tested
-- [x] Full protocol run: tuning on validation classes, 10 training seeds, test evaluation (`experiments/`)
+- [x] Full protocol run: tuning on validation classes, 30 training seeds, test evaluation (`experiments/`)
 - [x] Tables, statistical tests and figures from the full run (`experiments/report/`)
 - [x] Final report updated with the full-run results
 - [ ] Final presentation updated with the full-run results
@@ -51,6 +51,7 @@ from the training objective:
 ├── scripts/
 │   ├── run_experiments.py  # the full protocol: tuning, multi-seed training, test evaluation
 │   ├── stats_and_figures.py# every table, statistical test and figure in the report
+│   ├── near_duplicate_check.py # effect of near-duplicate test classes (same episodes)
 │   ├── analyze.py          # per-class results and qualitative examples
 │   ├── sanity_check.py     # synthetic-input tests of the core logic (no GPU or data needed)
 │   └── pilot_test.py       # original feasibility pilot (synthetic data, memory check)
@@ -98,8 +99,9 @@ finished runs are skipped):
 
 ```bash
 python -m scripts.run_experiments --data-root data/fewshot_data --smoke   # quick pipeline check
-python -m scripts.run_experiments --data-root data/fewshot_data           # full protocol
+python -m scripts.run_experiments --data-root data/fewshot_data --n-seeds 30   # full protocol (as reported)
 python -m scripts.stats_and_figures                                       # tables, tests, figures
+python -m scripts.near_duplicate_check --data-root data/fewshot_data      # near-duplicate class check
 ```
 
 What the full protocol does (all settings are logged to `experiments/state.json`):
@@ -111,7 +113,7 @@ What the full protocol does (all settings are logged to `experiments/state.json`
    - training epochs {10, 20} (200 episodes each)
    - Fine-tune: test-time adaptation steps {0, 1, 5, 10}, then its learning rate {3e-5, 1e-4, 3e-4}
    - Proto: distance {squared Euclidean / sqrt(C), cosine x 20 as in PANet}
-2. **Final training** with the chosen settings for Fine-tune, Proto and Proto-BW over 10 training seeds.
+2. **Final training** with the chosen settings for Fine-tune, Proto and Proto-BW over 30 training seeds (0 to 29).
 3. **Test evaluation** of every final model at k=1 and k=5 over 10 evaluation seeds x 50 episodes, with
    identical episodes for every model; plus Fine-tune without test-time adaptation as a diagnostic.
 4. **Per-class analysis and qualitative examples** for the seed-0 models.
@@ -126,6 +128,8 @@ Which files correspond to the report:
 | Cost table | `experiments/report/cost_table.md` (from each run's `history.json`) |
 | Validation curves / run distributions | `experiments/report/fig_val.png`, `fig_box.png` |
 | Per-class results, qualitative examples | `experiments/analysis/*_k5/` |
+| Friedman test | `experiments/report/friedman.json` |
+| Near-duplicate class check | `experiments/near_duplicates/summary.json` |
 | Every training run (config, per-epoch loss and validation, time, memory) | `experiments/train/*/history.json` |
 
 Individual scripts can also be run directly, e.g.:
