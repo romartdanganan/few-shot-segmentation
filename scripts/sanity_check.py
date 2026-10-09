@@ -64,27 +64,21 @@ def test_prototype_separates_known_classes():
 
 
 def test_weighted_ablation_downweights_boundary():
-    """
-    A support mask with occupancy exactly 0.5 everywhere (maximally
-    ambiguous, as if every pixel is a boundary pixel) should contribute
-    almost nothing to either prototype once weighted=True, compared to
-    weighted=False where it still contributes fully.
-    """
-    b, k, c, h, w = 1, 1, 2, 2, 2
-    feats = torch.ones(b, k, c, h, w)
-    occ = torch.full((b, k, h, w), 0.5)  # maximally ambiguous everywhere
+    """Boundary-weighted pooling (Proto-BW) must equal a hand-computed weighted
+    mean, and a location with occupancy 0.5 must get zero weight."""
+    feats = torch.tensor([1.0, 2.0, 3.0, 4.0]).view(1, 1, 1, 2, 2)  # C=1 on a 2x2 grid
+    occ = torch.tensor([1.0, 0.5, 0.75, 0.0]).view(1, 1, 2, 2)
+    p_fg, p_bg = compute_prototypes(feats, occ, weighted=True)
+    p_fg_plain, _ = compute_prototypes(feats, occ, weighted=False)
 
-    p_fg_plain, p_bg_plain = compute_prototypes(feats, occ, weighted=False)
-    p_fg_weighted, p_bg_weighted = compute_prototypes(feats, occ, weighted=True)
-
-    # Plain version still produces a well-defined prototype (weights sum
-    # to something meaningful); weighted version's weights collapse to
-    # ~0 everywhere, so the denominator clamp (1e-5) dominates and the
-    # result becomes numerically unstable/degenerate on this adversarial
-    # all-ambiguous input. We're checking the weighted version's weights
-    # are near zero, which is the actual intended behaviour.
-    confidence = (2 * occ - 1).abs()
-    ok = check("confidence is ~0 when occupancy is 0.5 everywhere", torch.allclose(confidence, torch.zeros_like(confidence), atol=1e-6))
+    # By hand: confidence |2m-1| = [1, 0, 0.5, 1], fg = 2.125/1.375, bg = 4.375/1.125.
+    ok = check("weighted fg prototype matches hand-computed value",
+               torch.allclose(p_fg.flatten(), torch.tensor([2.125 / 1.375])))
+    ok &= check("weighted bg prototype matches hand-computed value",
+                torch.allclose(p_bg.flatten(), torch.tensor([4.375 / 1.125])))
+    ok &= check("weighting changes the prototype (plain fg = 4.25/2.25)",
+                torch.allclose(p_fg_plain.flatten(), torch.tensor([4.25 / 2.25]))
+                and not torch.allclose(p_fg, p_fg_plain))
     return ok
 
 
