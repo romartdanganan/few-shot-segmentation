@@ -128,10 +128,11 @@ Which files correspond to the report:
 | Parameter-tuning tables | `experiments/report/tuning_tables.md`, `experiments/state.json` |
 | Main results table | `experiments/report/final_table.md` (from `experiments/test/*.json`) |
 | Statistical tests | `experiments/report/stats.md` / `stats.json` |
-| Cost table | `experiments/report/cost_table.md` (from each run's `history.json`) |
+| Cost table | `experiments/report/cost_table.md` (from each run's `history.json`; test times are medians) |
 | Validation curves / run distributions | `experiments/report/fig_val.png`, `fig_box.png` |
 | Per-class results, qualitative examples | `experiments/analysis/*_k5/` |
 | Friedman test | `experiments/report/friedman.json` |
+| Tests repeated on even and odd seeds; Proto vs Proto-BW at k=1 | `experiments/report/robustness.json`, end of `stats.md` |
 | Near-duplicate class check | `experiments/near_duplicates/summary.json` |
 | Every training run (config, per-epoch loss and validation, time, memory) | `experiments/train/*/history.json` |
 
@@ -148,8 +149,14 @@ tensorboard --logdir experiments/train
 - Training episodes depend on the training seed and the epoch; validation and test episodes depend
   only on the evaluation seed, so every model sees the same validation and test episodes.
 - The baseline's test-time adaptation runs with stochastic depth active, so its random generator is
-  seeded per evaluation seed; repeated evaluations give identical numbers.
+  seeded per evaluation seed; repeated evaluations give the same numbers (on a GPU they can
+  differ from about the fifth decimal place).
 - Seeds are fixed integers (never clock time) and are recorded in every JSON file.
+- Known overlap: a training episode's seed is `seed*1,000,000 + epoch*100,003 + idx`, so with 20 epochs
+  (Proto, Proto-BW) epochs 10 to 19 of training seed s reuse 1,700 episodes from epochs 0 to 9 of seed s+1.
+  Fine-tune (10 epochs) is not affected. The formula is kept so the reported runs reproduce exactly; the
+  tests repeated on even and on odd seeds only, which share no episodes, give the same conclusions
+  (`experiments/report/robustness.json`).
 
 ## Development history
 

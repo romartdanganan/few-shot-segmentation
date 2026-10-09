@@ -158,6 +158,7 @@ class FSS1000Episodic(Dataset):
         # the same episode. Epoch is folded in so training sees a fresh
         # episode for a given idx each epoch, while eval/test datasets
         # (which never call set_epoch) stay fully reproducible.
+        # From epoch 10 on this overlaps the next seed's episodes; kept so reported runs reproduce (README).
         gen = torch.Generator().manual_seed(self.seed * 1_000_000 + self._epoch * 100_003 + idx)
         # Support and query always share one randomly-picked class.
         cls = self.class_names[torch.randint(len(self.class_names), (1,), generator=gen).item()]
