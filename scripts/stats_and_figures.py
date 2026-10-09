@@ -12,6 +12,7 @@ Outputs (in <root>/report/):
     final_table.md      test mIoU / F1, mean +/- std over training seeds
     stats.md, stats.json paired t-test + Wilcoxon, Holm-corrected, effect sizes
     friedman.json        Friedman omnibus test over the three methods
+    robustness.json      the planned tests repeated on even and odd training seeds
     cost_table.md       training time, best epoch, memory, parameters, ms/episode
     fig_val.png         validation curves (mean over training seeds, band = min-max)
     fig_box.png         per-training-seed test mIoU
@@ -92,15 +93,15 @@ def friedman_tests(final, metric):
     return rows
 
 
-def paired_tests(final, metric):
+def paired_tests(final, metric, seed_filter=None, comparisons=COMPARISONS):
     rows = []
-    for k, a, b in COMPARISONS:
+    for k, a, b in comparisons:
         ra, rb = final.get(f"{k}_{a}"), final.get(f"{k}_{b}")
         if not ra or not rb:
             continue
         sa = {r["train_seed"]: r[metric] for r in ra}
         sb = {r["train_seed"]: r[metric] for r in rb}
-        seeds = sorted(set(sa) & set(sb))
+        seeds = [s for s in sorted(set(sa) & set(sb)) if seed_filter is None or seed_filter(s)]
         if len(seeds) < 2:
             continue
         x = np.array([sa[s] for s in seeds])
@@ -178,16 +179,31 @@ def main():
         lines.append(f"| {r['metric']} | {r['k'][1:]} | {STYLE[r['A']]['label']} | {STYLE[r['B']]['label']} | {r['n']} | "
                      f"{r['mean_diff_A_minus_B']:+.4f} | {r['t']:.2f} | {r['p_t']:.3g} | {r['p_holm']:.3g} | "
                      f"{r['p_wilcoxon_uncorrected']:.3g} | {r['cohen_dz']:+.2f} |")
+    # Proto seeds s and s+1 share some training episodes (README), so repeat the tests on
+    # even and odd seeds separately: within each half no two runs share an episode.
+    robust = {half: paired_tests(final, "mIoU", seed_filter=lambda s, r=r: s % 2 == r)
+              for half, r in (("even", 0), ("odd", 1))}
+    robust["extra_k1_proto_vs_bw"] = paired_tests(final, "mIoU", comparisons=[("k1", "prototype", "prototype_weighted")])
+    (out / "robustness.json").write_text(json.dumps(robust, indent=2), encoding="utf-8")
+    lines += ["", "## Robustness: same tests on even and odd training seeds (mIoU, Holm within each half)", "",
+              "| seeds | k | A | B | n | diff (A-B) | p Holm | p Wilcoxon | d_z |", "|---|---|---|---|---|---|---|---|---|"]
+    for half in ("even", "odd"):
+        for r in robust[half]:
+            lines.append(f"| {half} | {r['k'][1:]} | {STYLE[r['A']]['label']} | {STYLE[r['B']]['label']} | {r['n']} | "
+                         f"{r['mean_diff_A_minus_B']:+.4f} | {r['p_holm']:.3g} | {r['p_wilcoxon_uncorrected']:.3g} | {r['cohen_dz']:+.2f} |")
+    r = robust["extra_k1_proto_vs_bw"][0]
+    lines += ["", f"Unplanned check, Proto minus Proto-BW at k=1 (mIoU, n={r['n']}): diff {r['mean_diff_A_minus_B']:+.4f}, "
+              f"paired t-test p = {r['p_t']:.3g} (uncorrected), Wilcoxon p = {r['p_wilcoxon_uncorrected']:.3g}, d_z = {r['cohen_dz']:+.2f}."]
     (out / "stats.md").write_text("\n".join(lines), encoding="utf-8")
 
     # ---------------- cost table
     lines = ["# Computational cost", "",
              "| Condition | train time (min) | best epoch (per seed) | peak GPU MB | total params | "
-             "ms/episode k=1 | ms/episode k=5 |", "|---|---|---|---|---|---|---|"]
+             "median ms/episode k=1 | median ms/episode k=5 |", "|---|---|---|---|---|---|---|"]
     for cond, c in summary.get("cost", {}).items():
         tt = [t / 60 for t in c["train_time_s"]]
         mem = [m for m in c["peak_gpu_mem_MB"] if m is not None]
-        ms = {k: statistics.mean(r["ms_per_episode"] for r in final.get(f"k{k}_{cond}", [])) if final.get(f"k{k}_{cond}") else float("nan")
+        ms = {k: statistics.median(r["ms_per_episode"] for r in final.get(f"k{k}_{cond}", [])) if final.get(f"k{k}_{cond}") else float("nan")
               for k in (1, 5)}
         lines.append(f"| {STYLE[cond]['label']} | {statistics.mean(tt):.1f} ± {statistics.stdev(tt) if len(tt) > 1 else 0:.1f} | "
                      f"{c['best_epoch']} | {max(mem):.0f} | {c['total_params']:,} | {ms[1]:.0f} | {ms[5]:.0f} |"
@@ -196,13 +212,14 @@ def main():
     nt = final.get("k5_baseline_noTTA")
     if nt:
         lines.append(f"| {STYLE['baseline_noTTA']['label']} | (same model) | | | | "
-                     f"{statistics.mean(r['ms_per_episode'] for r in final['k1_baseline_noTTA']):.0f} | "
-                     f"{statistics.mean(r['ms_per_episode'] for r in nt):.0f} |")
-    lines += ["", f"Hardware: {next(iter(summary.get('cost', {}).values()), {}).get('device')}"]
+                     f"{statistics.median(r['ms_per_episode'] for r in final['k1_baseline_noTTA']):.0f} | "
+                     f"{statistics.median(r['ms_per_episode'] for r in nt):.0f} |")
+    lines += ["", f"Hardware: {next(iter(summary.get('cost', {}).values()), {}).get('device')}",
+              "Test times are medians over training seeds, because a few runs were slowed by the computer sleeping."]
     (out / "cost_table.md").write_text("\n".join(lines), encoding="utf-8")
 
     # ---------------- figure: validation curves (final configs, all training seeds)
-    fig, ax = plt.subplots(figsize=(3.4, 2.3), dpi=300)
+    fig, ax = plt.subplots(figsize=(3.1, 2.1), dpi=300)  # drawn at print width (one column)
     for cond, dirs in state.get("final_runs", {}).items():
         curves = []
         for d in dirs:
@@ -224,7 +241,7 @@ def main():
     ax.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
     ax.set_ylabel("Validation mIoU")
     ax.grid(alpha=0.3)
-    ax.legend(fontsize=6, loc="lower right")
+    ax.legend(fontsize=7, loc="lower right")
     fig.tight_layout()
     fig.savefig(out / "fig_val.png")
     plt.close(fig)
@@ -240,14 +257,14 @@ def main():
             labels.append(f"{STYLE[cond].get('short', STYLE[cond]['label'])}\n{k[1:]}-shot")
             styles.append(STYLE[cond])
     if data:
-        fig, ax = plt.subplots(figsize=(3.4, 2.2), dpi=300)
+        fig, ax = plt.subplots(figsize=(3.1, 2.0), dpi=300)
         ax.boxplot(data, tick_labels=labels, widths=0.5, showfliers=False, medianprops=dict(color="black", lw=1.2))
         for i, (vals, st) in enumerate(zip(data, styles), start=1):
             jitter = np.linspace(-0.22, 0.22, len(vals)) if len(vals) > 1 else [0]
             ax.scatter(np.full(len(vals), i) + jitter, vals, s=6, marker=st["marker"], zorder=3,
                        facecolors=st["mfc"] or st["color"], edgecolors=st["color"], linewidths=0.6)
         ax.set_ylabel("Test mIoU per training seed")
-        ax.tick_params(axis="x", labelsize=6)
+        ax.tick_params(axis="x", labelsize=7)
         ax.grid(axis="y", alpha=0.3)
         fig.tight_layout()
         fig.savefig(out / "fig_box.png")

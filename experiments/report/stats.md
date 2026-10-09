@@ -12,3 +12,18 @@ Paired t-test (primary) and Wilcoxon signed-rank (check, uncorrected); Holm corr
 | F1 | 5 | Fine-tune | Proto | 30 | +0.0137 | 17.50 | 5.95e-17 | 1.78e-16 | 1.86e-09 | +3.19 |
 | F1 | 5 | Proto | Proto-BW | 30 | +0.0045 | 6.42 | 5.02e-07 | 5.02e-07 | 2.76e-06 | +1.17 |
 | F1 | 5 | Fine-tune | Fine-tune, no TTA | 30 | +0.0273 | 15.60 | 1.22e-15 | 2.44e-15 | 1.86e-09 | +2.85 |
+
+## Robustness: same tests on even and odd training seeds (mIoU, Holm within each half)
+
+| seeds | k | A | B | n | diff (A-B) | p Holm | p Wilcoxon | d_z |
+|---|---|---|---|---|---|---|---|---|
+| even | 1 | Fine-tune | Proto | 15 | +0.0425 | 8.99e-10 | 6.1e-05 | +4.01 |
+| even | 5 | Fine-tune | Proto | 15 | +0.0169 | 2.19e-10 | 6.1e-05 | +4.58 |
+| even | 5 | Proto | Proto-BW | 15 | +0.0040 | 0.000475 | 0.00061 | +1.17 |
+| even | 5 | Fine-tune | Fine-tune, no TTA | 15 | +0.0302 | 8.99e-10 | 6.1e-05 | +4.03 |
+| odd | 1 | Fine-tune | Proto | 15 | +0.0381 | 1.38e-09 | 6.1e-05 | +3.78 |
+| odd | 5 | Fine-tune | Proto | 15 | +0.0190 | 4.58e-11 | 6.1e-05 | +5.03 |
+| odd | 5 | Proto | Proto-BW | 15 | +0.0036 | 0.00619 | 0.00836 | +0.83 |
+| odd | 5 | Fine-tune | Fine-tune, no TTA | 15 | +0.0301 | 6.2e-12 | 6.1e-05 | +5.95 |
+
+Unplanned check, Proto minus Proto-BW at k=1 (mIoU, n=30): diff +0.0042, paired t-test p = 0.0652 (uncorrected), Wilcoxon p = 0.0667, d_z = +0.35.
