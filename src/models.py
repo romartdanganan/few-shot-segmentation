@@ -130,8 +130,8 @@ def adapt_baseline(backbone,head,support_imgs,support_masks,lr=1e-4,steps=5):
     return adapted_backbone, adapted_head
 
 def compute_prototypes(support_feats, support_occupancy, weighted=False):
-    """Eq. (1): masked average pooling. See pilot_test.py for full derivation
-    of the distance-weighted ablation variant."""
+    """Eq. (1): masked average pooling into fg/bg prototypes.
+    weighted=True multiplies the weights by |2m - 1| (Proto-BW, Eq. 4)."""
     # support_occupancy is fractional (0-1), not strictly binary, since the
     # full-res mask gets downsampled to the smaller feature map.
     b, k, c, h, w = support_feats.shape

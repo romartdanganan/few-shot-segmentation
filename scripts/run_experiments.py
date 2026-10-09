@@ -272,7 +272,8 @@ class Runner:
         summary["final"] = rows
         # training cost from the history files
         for cond, dirs in runs.items():
-            hs = [json.loads((Path(d) / "history.json").read_text()) for d in dirs if (Path(d) / "history.json").exists()]
+            dirs = [Path(str(d).replace("\\", "/")) for d in dirs]  # runs from Windows store "\\" paths
+            hs = [json.loads((d / "history.json").read_text()) for d in dirs if (d / "history.json").exists()]
             if hs:
                 summary["cost"][cond] = {
                     "train_time_s": [h["total_train_time_s"] for h in hs],

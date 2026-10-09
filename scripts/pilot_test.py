@@ -143,7 +143,8 @@ def compute_prototypes(support_feats, support_occupancy, weighted=False):
     Returns fg/bg prototypes of shape (B, C).
     """
     b, k, c, h, w = support_feats.shape
-    feats = support_feats.view(b, k * h * w, c)
+    # Channel axis moved last before flattening (same fix as src/models.py).
+    feats = support_feats.permute(0, 1, 3, 4, 2).reshape(b, k * h * w, c)
     occ = support_occupancy.view(b, k * h * w, 1)
     fg_weight, bg_weight = occ, 1 - occ
 
